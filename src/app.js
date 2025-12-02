@@ -34,13 +34,16 @@ const init = () => {
   });
 
   // Register API routes
+  console.log("Registering routes...");
   app.use("/api/products", productsRouter);
   app.use("/api/inventory", inventoryRouter);
   app.use("/api/locations", locationsRouter);
+  console.log("Routes registered.");
 
   app.listen(PORT, () => {
     console.log(`Warehouse API running on port ${PORT}`);
   });
 };
+
 
 init();
