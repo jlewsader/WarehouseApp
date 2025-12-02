@@ -83,3 +83,52 @@ router.get("/barcode/:code", (req, res) => {
 });
 
 export default router;
+
+// Create product
+router.post("/", (req, res) => {
+  const db = req.app.locals.db;
+
+  const {
+    barcode,
+    brand,
+    product_code,
+    lot,
+    seed_size,
+    package_type
+  } = req.body;
+
+  db.run(
+    `
+    INSERT INTO products (barcode, brand, product_code, lot, seed_size, package_type)
+    VALUES (?, ?, ?, ?, ?, ?)
+    `,
+    [barcode, brand, product_code, lot, seed_size, package_type],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: "Product added", id: this.lastID });
+    }
+  );
+});
+
+// Delete a product by ID
+router.delete("/:id", (req, res) => {
+  const db = req.app.locals.db;
+  const { id } = req.params;
+
+  db.run(
+    `DELETE FROM products WHERE id = ?`,
+    [id],
+    function (err) {
+      if (err) {
+        console.error("Delete failed:", err);
+        return res.status(500).json({ error: err.message });
+      }
+
+      if (this.changes === 0) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      res.json({ message: "Product deleted", id });
+    }
+  );
+});
