@@ -82,8 +82,6 @@ router.get("/barcode/:code", (req, res) => {
   });
 });
 
-export default router;
-
 // Create product
 router.post("/", (req, res) => {
   const db = req.app.locals.db;
@@ -132,3 +130,5 @@ router.delete("/:id", (req, res) => {
     }
   );
 });
+
+export default router;
