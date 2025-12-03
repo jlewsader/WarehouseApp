@@ -167,4 +167,74 @@ router.delete("/:id", (req, res) => {
   });
 });
 
+/**
+ * MOVE inventory records to a new location
+ * Body: { inventory_ids: [1,2,3], to_location_id: 123 }
+ */
+router.post("/move", (req, res) => {
+  const db = req.app.locals.db;
+  const { inventory_ids, to_location_id } = req.body;
+
+  if (!Array.isArray(inventory_ids) || inventory_ids.length === 0) {
+    return res.status(400).json({ error: "inventory_ids must be a non-empty array" });
+  }
+  if (!to_location_id) {
+    return res.status(400).json({ error: "to_location_id is required" });
+  }
+
+  // 1) Ensure destination location exists
+  db.get(
+    "SELECT id FROM locations WHERE id = ?",
+    [to_location_id],
+    (err, location) => {
+      if (err) {
+        console.error("Failed to validate location:", err);
+        return res.status(500).json({ error: err.message });
+      }
+      if (!location) {
+        return res.status(400).json({ error: "Destination location does not exist" });
+      }
+
+      // 2) Move all requested inventory rows
+      db.serialize(() => {
+        const stmt = db.prepare(
+          "UPDATE inventory SET location_id = ? WHERE id = ?"
+        );
+
+        let movedCount = 0;
+
+        for (const invId of inventory_ids) {
+          stmt.run([to_location_id, invId], function (err2) {
+            if (err2) {
+              console.error("Failed to move inventory id", invId, err2);
+              // we do not early-return here, we log and continue
+            } else if (this.changes > 0) {
+              movedCount++;
+            }
+          });
+        }
+
+        stmt.finalize((err3) => {
+          if (err3) {
+            console.error("Failed to finalize move statement:", err3);
+            return res.status(500).json({ error: "Failed to complete move" });
+          }
+
+          if (movedCount === 0) {
+            return res
+              .status(404)
+              .json({ message: "No inventory records were moved" });
+          }
+
+          res.json({
+            message: "Inventory moved",
+            moved: movedCount,
+            to_location_id
+          });
+        });
+      });
+    }
+  );
+});
+
 export default router;
