@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Unassigned Inventory</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<header>
+  <h1>Unassigned Inventory</h1>
+</header>
+
+<main>
+  <section>
+    <label>Sort By: </label>
+    <select id="sortSelect">
+      <option value="brand">Brand</option>
+      <option value="product_code">Product Code</option>
+      <option value="lot">Lot Number</option>
+      <option value="newest">Newest First</option>
+    </select>
+    <button onclick="loadUnassigned()">Apply</button>
+  </section>
+
+  <section id="unassignedContainer" class="info-box">
+    <p>Loading unassigned inventory...</p>
+  </section>
+
+  <section>
+    <button id="moveBtn" disabled>Move Selected</button>
+    <button id="deleteBtn" disabled>Delete Selected</button>
+  </section>
+</main>
+
+<script src="/js/unassigned.js"></script>
+</body>
+</html>

@@ -44,10 +44,17 @@ function renderProductFound(product) {
   box.innerHTML = `
     <h3>Product Found</h3>
     <p><strong>${product.brand} ${product.product_code}</strong></p>
+
     <p>Lot: ${product.lot || "N/A"}</p>
     <p>Size: ${product.seed_size || "N/A"} | Package: ${product.package_type || "N/A"}</p>
 
-    <button onclick="continueReceiving()">Continue Receiving</button>
+    <label>Quantity Received<br>
+      <input id="recvQty" type="number" min="1" value="1">
+    </label>
+    <br><br>
+
+    <button onclick="receiveInventory(${product.id})">Receive Inventory</button>
+    <button onclick="continueReceiving()">Cancel</button>
   `;
 }
 
@@ -121,5 +128,45 @@ async function saveNewProduct(barcode) {
 
   } catch (err) {
     box.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+  }
+}
+
+async function receiveInventory(product_id) {
+  const qty = parseInt(document.getElementById("recvQty").value);
+  const box = document.getElementById("resultBox");
+
+  if (!qty || qty <= 0) {
+    box.innerHTML = `<p style="color:red;">Invalid quantity.</p>`;
+    return;
+  }
+
+  box.innerHTML = `<p>Receiving ${qty} units...</p>`;
+
+  try {
+    const res = await fetch("/api/inventory/receive", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        product_id,
+        qty,
+        owner: "Keystone"
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      box.innerHTML = `<p style="color:red;">Error: ${data.error}</p>`;
+      return;
+    }
+
+    box.innerHTML = `
+      <p>Received ${qty} units of product!</p>
+      <button onclick="continueReceiving()">Receive Next</button>
+      <button onclick="window.location='/unassigned.html'">View Unassigned</button>
+    `;
+
+  } catch (err) {
+    box.innerHTML = `<p style='color:red;'>Error: ${err.message}</p>`;
   }
 }

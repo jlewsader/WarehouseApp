@@ -314,5 +314,29 @@ router.get("/unassigned", (req, res) => {
   );
 });
 
+// Receive inventory into UNASSIGNED area
+router.post("/receive", (req, res) => {
+  const db = req.app.locals.db;
+  const { product_id, qty, owner } = req.body;
+
+  if (!product_id || !qty) {
+    return res.status(400).json({ error: "Missing product_id or qty" });
+  }
+
+  db.run(
+    `
+    INSERT INTO inventory (product_id, qty, owner, location_id)
+    VALUES (?, ?, ?, 9999)
+    `,
+    [product_id, qty, owner || "Keystone"],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+
+      res.json({ message: "Inventory received", id: this.lastID });
+    }
+  );
+});
+
+
 
 export default router;
