@@ -1,31 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Receiving - Scan</title>
-  <link rel="stylesheet" href="/css/styles.css" />
+  <meta charset="UTF-8">
+  <title>Receiving - Scan Product</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
 
 <header>
-  <h1>Receiving - Scan Product</h1>
+  <h1>Receiving</h1>
 </header>
 
 <main>
+
   <section class="info-box">
-    <label for="barcodeInput"><strong>Barcode</strong></label>
-    <input id="barcodeInput" type="text" placeholder="Scan or type barcode..." />
+    <label><strong>Enter Barcode (GTIN):</strong></label>
+    <input id="barcodeInput" type="text" placeholder="Scan or type GTIN..." autofocus>
     <button id="lookupBtn">Lookup</button>
   </section>
 
-  <section id="scanStatus" class="info-box">
-    Enter or scan a barcode to begin.
+  <section id="resultBox" class="info-box">
+    <p>Scan or enter a barcode to begin.</p>
   </section>
 
-  <section id="productForm" class="info-box" style="display:none;"></section>
 </main>
 
+<script src="/js/libs/html5-qrcode.min.js"></script> <!-- Scanner stays available for future integration -->
 <script src="/js/scan.js"></script>
+
 </body>
 </html>

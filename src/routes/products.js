@@ -59,27 +59,18 @@ router.get("/barcode/:code", (req, res) => {
   const db = req.app.locals.db;
   const code = req.params.code;
 
-  db.get("SELECT * FROM products WHERE barcode = ?", [code], (err, product) => {
-    if (err) return res.status(500).json({ error: err.message });
+  db.get(
+    "SELECT * FROM products WHERE barcode = ?",
+    [code],
+    (err, product) => {
+      if (err) return res.status(500).json({ error: err.message });
 
-    if (!product) return res.status(404).json({ message: "Product not found" });
+      if (!product)
+        return res.status(404).json({ message: "NOT_FOUND" });
 
-    // Now fetch locations
-    db.all(
-      `
-      SELECT l.label, l.row_index, l.col_index, i.qty, i.owner
-      FROM inventory i
-      JOIN locations l ON l.id = i.location_id
-      WHERE i.product_id = ?
-    `,
-      [product.id],
-      (err, locations) => {
-        if (err) return res.status(500).json({ error: err.message });
-
-        res.json({ ...product, locations });
-      }
-    );
-  });
+      res.json(product);
+    }
+  );
 });
 
 // Create product
