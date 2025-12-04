@@ -9,8 +9,20 @@ import locationsRouter from "./routes/locations.js";
 
 const app = express();
 app.use(cors());
-app.use(express.static("public"));
 app.use(express.json());
+app.use(express.static("public"));
+
+app.get("/tunnel-ping", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.json({ status: "ok", tunnel: "active" });
+});
+
+app.use((req, res, next) => {
+  // Turn off GitHub "CHII" inspector for Safari
+  res.setHeader("X-Chii-Ignore", "true");
+  next();
+});
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
