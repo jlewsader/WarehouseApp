@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Move Inventory</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<header>
+  <h1>Move Inventory</h1>
+</header>
+
+<main>
+  <section class="info-box">
+    <h3>Items Selected</h3>
+    <div id="selectedList"></div>
+  </section>
+
+  <section class="info-box">
+    <h3>Select Target Location</h3>
+
+    <label>Zone:</label>
+    <select id="zoneSelect">
+      <option value="Center">Center</option>
+      <option value="East">East Wall</option>
+      <option value="West">West Wall</option>
+    </select>
+
+    <br><br>
+
+    <label>Row:</label>
+    <select id="rowSelect"></select>
+
+    <label>Stack:</label>
+    <select id="stackSelect"></select>
+
+    <label>Level:</label>
+    <select id="levelSelect">
+      <option value="T">Top</option>
+      <option value="M">Middle</option>
+      <option value="B">Bottom</option>
+    </select>
+  </section>
+
+  <section>
+    <button onclick="moveInventory()">Confirm Move</button>
+    <button onclick="cancelMove()">Cancel</button>
+  </section>
+</main>
+
+<script src="/js/move.js"></script>
+
+</body>
+</html>

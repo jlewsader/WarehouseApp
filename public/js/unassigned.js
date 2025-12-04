@@ -132,3 +132,13 @@ function updateActionButtons() {
   moveBtn.disabled = !hasSelection;
   deleteBtn.disabled = !hasSelection;
 }
+
+document.getElementById("moveBtn").onclick = () => {
+  if (selectedIds.size === 0) return;
+
+  // Store selected IDs so Move page can read them
+  localStorage.setItem("moveSelection", JSON.stringify([...selectedIds]));
+
+  // Redirect to move UI
+  window.location = "/move.html";
+};

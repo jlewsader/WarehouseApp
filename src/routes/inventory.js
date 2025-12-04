@@ -337,6 +337,29 @@ router.post("/receive", (req, res) => {
   );
 });
 
+// Move selected inventory items to a new location
+router.post("/move", (req, res) => {
+  const db = req.app.locals.db;
+  const { ids, location_id } = req.body;
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: "Missing inventory IDs" });
+  }
+
+  const placeholders = ids.map(() => "?").join(",");
+
+  const sql = `
+    UPDATE inventory
+    SET location_id = ?
+    WHERE id IN (${placeholders})
+  `;
+
+  db.run(sql, [location_id, ...ids], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+
+    res.json({ message: "Inventory moved", changes: this.changes });
+  });
+});
 
 
 export default router;
