@@ -237,4 +237,82 @@ router.post("/move", (req, res) => {
   );
 });
 
+/**
+ * ADD inventory to UNASSIGNED location (receiving intake)
+ * Body: { product_id, qty, owner }
+ */
+router.post("/unassigned", (req, res) => {
+  const db = req.app.locals.db;
+  const { product_id, qty, owner } = req.body;
+
+  if (!product_id || !qty) {
+    return res
+      .status(400)
+      .json({ error: "product_id and qty are required." });
+  }
+
+  const UNASSIGNED_ID = 9999;
+
+  db.run(
+    `
+    INSERT INTO inventory (product_id, location_id, owner, qty)
+    VALUES (?, ?, ?, ?)
+    `,
+    [product_id, UNASSIGNED_ID, owner || "Keystone", qty],
+    function (err) {
+      if (err) {
+        console.error("Failed to insert unassigned inventory:", err);
+        return res.status(500).json({ error: err.message });
+      }
+
+      res.json({
+        message: "Inventory added to UNASSIGNED",
+        id: this.lastID,
+        product_id,
+        location_id: UNASSIGNED_ID,
+      });
+    }
+  );
+});
+
+/**
+ * GET all UNASSIGNED inventory
+ */
+router.get("/unassigned", (req, res) => {
+  const db = req.app.locals.db;
+  const UNASSIGNED_ID = 9999;
+
+  db.all(
+    `
+    SELECT 
+      i.id,
+      i.product_id,
+      p.brand,
+      p.product_code,
+      p.lot,
+      p.seed_size,
+      p.package_type,
+      i.location_id,
+      l.label AS location_label,
+      l.zone,
+      i.owner,
+      i.qty
+    FROM inventory i
+    JOIN products p ON p.id = i.product_id
+    JOIN locations l ON l.id = i.location_id
+    WHERE i.location_id = ?
+    ORDER BY i.id DESC
+    `,
+    [UNASSIGNED_ID],
+    (err, rows) => {
+      if (err) {
+        console.error("Failed to fetch unassigned inventory:", err);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(rows);
+    }
+  );
+});
+
+
 export default router;
