@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Warehouse Map</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<header>
+  <h1>Warehouse Map</h1>
+</header>
+
+<main>
+
+  <div class="zone-selector">
+    <button onclick="loadZone('Center')">Center Block</button>
+    <button onclick="loadZone('East')">East Wall</button>
+    <button onclick="loadZone('West')">West Wall</button>
+  </div>
+
+  <div id="mapContainer" class="map-container">
+    <!-- Grid loads here -->
+  </div>
+
+</main>
+
+<script src="/js/map.js"></script>
+
+</body>
+</html>
