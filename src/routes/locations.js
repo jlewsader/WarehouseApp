@@ -151,4 +151,28 @@ router.post("/generate-all", (req, res) => {
   });
 });
 
+// Look up a location by its label, e.g. "C-R1-C1-T"
+router.get("/by-label/:label", (req, res) => {
+  const db = req.app.locals.db;
+  const { label } = req.params;
+
+  db.get(
+    "SELECT * FROM locations WHERE label = ?",
+    [label],
+    (err, row) => {
+      if (err) {
+        console.error("Location lookup failed:", err);
+        return res.status(500).json({ error: err.message });
+      }
+
+      if (!row) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+
+      res.json(row);
+    }
+  );
+});
+
+
 export default router;

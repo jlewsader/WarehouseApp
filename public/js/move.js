@@ -2,15 +2,16 @@ console.log("move.js loaded");
 
 let selectedIds = [];
 
-window.onload = async () => {
+window.onload = () => {
   const data = localStorage.getItem("moveSelection");
-  if (!data) return alert("No items selected.");
+  if (!data) {
+    alert("No items selected for move.");
+    return;
+  }
 
   selectedIds = JSON.parse(data);
-
   const listDiv = document.getElementById("selectedList");
 
-  // Display selected items
   selectedIds.forEach(id => {
     const p = document.createElement("p");
     p.textContent = `Inventory ID: ${id}`;
@@ -20,6 +21,7 @@ window.onload = async () => {
   setupZone();
 };
 
+// Build zone / row / stack dropdowns based on your warehouse layout
 function setupZone() {
   const zoneSelect = document.getElementById("zoneSelect");
   const rowSelect = document.getElementById("rowSelect");
@@ -31,7 +33,8 @@ function setupZone() {
     rowSelect.innerHTML = "";
     stackSelect.innerHTML = "";
 
-    let rows = 1, stacks = 1;
+    let rows = 1;
+    let stacks = 1;
 
     if (zone === "Center") {
       rows = 25;
@@ -45,16 +48,16 @@ function setupZone() {
     }
 
     for (let r = 1; r <= rows; r++) {
-      let opt = document.createElement("option");
+      const opt = document.createElement("option");
       opt.value = r;
-      opt.innerText = r;
+      opt.textContent = r;
       rowSelect.appendChild(opt);
     }
 
     for (let s = 1; s <= stacks; s++) {
-      let opt = document.createElement("option");
+      const opt = document.createElement("option");
       opt.value = s;
-      opt.innerText = s;
+      opt.textContent = s;
       stackSelect.appendChild(opt);
     }
   }
@@ -64,36 +67,57 @@ function setupZone() {
 }
 
 async function moveInventory() {
-  const zone = document.getElementById("zoneSelect").value;
-  const row = document.getElementById("rowSelect").value;
-  const stack = document.getElementById("stackSelect").value;
-  const level = document.getElementById("levelSelect").value;
+  try {
+    if (!selectedIds || selectedIds.length === 0) {
+      alert("No inventory selected.");
+      return;
+    }
 
-  // Construct location label: C-R1-S1-T
-  const label = `${zone[0]}-R${row}-C${stack}-${level}`;
+    const zone = document.getElementById("zoneSelect").value;
+    const row = document.getElementById("rowSelect").value;
+    const stack = document.getElementById("stackSelect").value;
+    const level = document.getElementById("levelSelect").value;
 
-  // Fetch that location ID
-  const locRes = await fetch(`/api/locations/by-label/${label}`);
-  const location = await locRes.json();
+    // Map zone to label prefix: Center -> C, East -> E, West -> W
+    let prefix = "C";
+    if (zone === "East") prefix = "E";
+    if (zone === "West") prefix = "W";
 
-  if (!location.id) return alert("Location not found in DB!");
+    const label = `${prefix}-R${row}-C${stack}-${level}`;
+    console.log("Target label:", label);
 
-  // Move items
-  const res = await fetch("/api/inventory/move", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ids: selectedIds,
-      location_id: location.id
-    })
-  });
+    // Look up the location_id from label
+    const locRes = await fetch(`/api/locations/by-label/${encodeURIComponent(label)}`);
+    if (!locRes.ok) {
+      const txt = await locRes.text();
+      alert(`Location lookup failed (${locRes.status}): ${txt}`);
+      return;
+    }
+    const location = await locRes.json();
+    console.log("Location row:", location);
 
-  if (res.ok) {
-    alert("Items moved successfully!");
+    // Call inventory/move
+    const moveRes = await fetch("/api/inventory/move", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ids: selectedIds,
+        location_id: location.id
+      })
+    });
+
+    const body = await moveRes.json();
+    if (!moveRes.ok) {
+      alert(`Move failed: ${body.error || JSON.stringify(body)}`);
+      return;
+    }
+
+    alert(`Moved ${selectedIds.length} entries to ${label}.`);
     localStorage.removeItem("moveSelection");
     window.location = "/unassigned.html";
-  } else {
-    alert("Move failed");
+  } catch (err) {
+    console.error("Move error:", err);
+    alert("Unexpected move error: " + err.message);
   }
 }
 

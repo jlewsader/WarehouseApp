@@ -343,23 +343,54 @@ router.post("/move", (req, res) => {
   const { ids, location_id } = req.body;
 
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ error: "Missing inventory IDs" });
+    return res.status(400).json({ error: "ids must be a non-empty array" });
   }
 
-  const placeholders = ids.map(() => "?").join(",");
+  // RULE: A location may contain ONLY 1 inventory record.
+  db.get(
+    `
+    SELECT id, product_id 
+    FROM inventory
+    WHERE location_id = ?
+    LIMIT 1
+    `,
+    [location_id],
+    (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
 
-  const sql = `
-    UPDATE inventory
-    SET location_id = ?
-    WHERE id IN (${placeholders})
-  `;
+      if (row) {
+        // Location already occupied — BLOCK MOVE
+        return res.status(400).json({
+          error: `Location already contains an item (inventory_id ${row.id}). 
+                  Stacking is not allowed. Choose another location.`
+        });
+      }
 
-  db.run(sql, [location_id, ...ids], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
+      // No item in this location — perform move
+      performMove();
+    }
+  );
 
-    res.json({ message: "Inventory moved", changes: this.changes });
-  });
+  function performMove() {
+    const placeholders = ids.map(() => "?").join(",");
+    const sql = `
+      UPDATE inventory
+      SET location_id = ?
+      WHERE id IN (${placeholders})
+    `;
+
+    db.run(sql, [location_id, ...ids], function (err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+
+      res.json({ message: "Items moved successfully.", changes: this.changes });
+    });
+  }
 });
+
 
 
 export default router;
