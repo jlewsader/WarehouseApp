@@ -59,8 +59,14 @@ async function loadUnassigned() {
 
       div.innerHTML = `
         <h3>${prod.brand} ${prod.product_code}</h3>
-        <p>Lot: ${prod.lot || "N/A"} | Size: ${prod.seed_size} | Package: ${prod.package_type}</p>
-        <p><strong>Total Qty: ${totalQty}</strong></p>
+        <p>
+          Lot: ${prod.lot || "N/A"} |
+          Size: ${prod.seed_size || "N/A"} |
+          Package: ${prod.package_type || "N/A"} |
+          Units/Package: ${prod.units_per_package || 1}
+        </p>        
+        <p><strong>Physical Items: ${rows.length}</strong></p>
+        <p><strong>Units: ${rows.length * (prod.units_per_package || 1)}</strong></p>
 
         <button onclick="toggleDetails('${product_id}')">View Details</button>
         <button onclick="selectGroup('${product_id}', true)">Select All</button>

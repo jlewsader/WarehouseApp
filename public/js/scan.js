@@ -46,7 +46,11 @@ function renderProductFound(product) {
     <p><strong>${product.brand} ${product.product_code}</strong></p>
 
     <p>Lot: ${product.lot || "N/A"}</p>
-    <p>Size: ${product.seed_size || "N/A"} | Package: ${product.package_type || "N/A"}</p>
+    <p>
+      Size: ${product.seed_size || "N/A"} |
+      Package: ${product.package_type || "N/A"} |
+      Units/Package: ${product.units_per_package || 1}
+    </p>
 
     <label>Quantity Received<br>
       <input id="recvQty" type="number" min="1" value="1">
@@ -57,6 +61,7 @@ function renderProductFound(product) {
     <button onclick="continueReceiving()">Cancel</button>
   `;
 }
+
 
 function continueReceiving() {
   const box = document.getElementById("resultBox");

@@ -280,39 +280,32 @@ router.post("/unassigned", (req, res) => {
  */
 router.get("/unassigned", (req, res) => {
   const db = req.app.locals.db;
-  const UNASSIGNED_ID = 9999;
 
-  db.all(
-    `
+  const sql = `
     SELECT 
       i.id,
       i.product_id,
+      i.qty,
+      i.owner,
+      i.location_id,
       p.brand,
       p.product_code,
       p.lot,
       p.seed_size,
       p.package_type,
-      i.location_id,
-      l.label AS location_label,
-      l.zone,
-      i.owner,
-      i.qty
+      p.units_per_package
     FROM inventory i
     JOIN products p ON p.id = i.product_id
-    JOIN locations l ON l.id = i.location_id
-    WHERE i.location_id = ?
+    WHERE i.location_id = 9999
     ORDER BY i.id DESC
-    `,
-    [UNASSIGNED_ID],
-    (err, rows) => {
-      if (err) {
-        console.error("Failed to fetch unassigned inventory:", err);
-        return res.status(500).json({ error: err.message });
-      }
-      res.json(rows);
-    }
-  );
+  `;
+
+  db.all(sql, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
 });
+
 
 // Receive inventory into UNASSIGNED area
 router.post("/receive", (req, res) => {
