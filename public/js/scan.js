@@ -97,6 +97,12 @@ async function saveNewProduct(barcode) {
   const seed_size = document.getElementById("pSize").value.trim();
   const package_type = document.getElementById("pPackage").value.trim();
 
+  let units_per_package = 1;
+// TODO: COntinue adding common package types.
+  if (package_type.toUpperCase() === "SP50") units_per_package = 50;
+  if (package_type.toUpperCase() === "BOX50") units_per_package = 50;
+  if (package_type.toUpperCase() === "50") units_per_package = 50;
+
   const box = document.getElementById("resultBox");
   box.innerHTML = `<p>Saving product...</p>`;
 

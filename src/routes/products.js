@@ -83,15 +83,25 @@ router.post("/", (req, res) => {
     product_code,
     lot,
     seed_size,
-    package_type
+    package_type,
+    units_per_package
   } = req.body;
 
   db.run(
     `
-    INSERT INTO products (barcode, brand, product_code, lot, seed_size, package_type)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO products 
+      (barcode, brand, product_code, lot, seed_size, package_type, units_per_package)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     `,
-    [barcode, brand, product_code, lot, seed_size, package_type],
+    [
+      barcode, 
+      brand, 
+      product_code, 
+      lot, 
+      seed_size, 
+      package_type,
+      units_per_package || 1
+    ],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ message: "Product added", id: this.lastID });

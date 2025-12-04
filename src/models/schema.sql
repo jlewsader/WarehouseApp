@@ -5,8 +5,10 @@ CREATE TABLE IF NOT EXISTS products (
     product_code TEXT,
     lot TEXT,
     seed_size TEXT,
-    package_type TEXT
+    package_type TEXT,
+    units_per_package INTEGER DEFAULT 1
 );
+
 
 CREATE TABLE IF NOT EXISTS locations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
