@@ -19,11 +19,12 @@ async function loadUnassigned() {
       return;
     }
 
-    // Group by product_id
+    // Group by product_id + lot (unique combination)
     const groups = {};
     for (const row of items) {
-      if (!groups[row.product_id]) groups[row.product_id] = [];
-      groups[row.product_id].push(row);
+      const groupKey = `${row.product_id}|${row.lot || ""}`;
+      if (!groups[groupKey]) groups[groupKey] = [];
+      groups[groupKey].push(row);
     }
 
     // Array form for sorting
@@ -50,9 +51,10 @@ async function loadUnassigned() {
     // Render
     container.innerHTML = "";
 
-    groupArr.forEach(([product_id, rows]) => {
+    groupArr.forEach(([groupKey, rows]) => {
       const prod = rows[0];
       const totalQty = rows.reduce((sum, r) => sum + r.qty, 0);
+      const totalUnits = totalQty * (prod.units_per_package || 1);
 
       const div = document.createElement("div");
       div.className = "product-group";
@@ -65,30 +67,30 @@ async function loadUnassigned() {
           Package: ${prod.package_type || "N/A"} |
           Units/Package: ${prod.units_per_package || 1}
         </p>        
-        <p><strong>Physical Items: ${rows.length}</strong></p>
-        <p><strong>Units: ${rows.length * (prod.units_per_package || 1)}</strong></p>
+        <p><strong>Total Qty: ${totalQty} | Total Units: ${totalUnits}</strong></p>
 
-        <button onclick="toggleDetails('${product_id}')">View Details</button>
-        <button onclick="selectGroup('${product_id}', true)">Select All</button>
-        <button onclick="selectGroup('${product_id}', false)">Clear</button>
+        <button onclick="toggleDetails('${groupKey}')">View Details</button>
+        <button onclick="selectGroup('${groupKey}', true)">Select All</button>
+        <button onclick="selectGroup('${groupKey}', false)">Clear</button>
 
-        <div id="details-${product_id}" class="details" style="display:none;"></div>
+        <div id="details-${escapeId(groupKey)}" class="details" style="display:none;"></div>
       `;
 
       container.appendChild(div);
 
       // Render detail list
-      const detailDiv = div.querySelector(`#details-${product_id}`);
+      const detailDiv = div.querySelector(`#details-${escapeId(groupKey)}`);
       rows.forEach(r => {
         const rowDiv = document.createElement("div");
         rowDiv.className = "detail-row";
 
         const checked = selectedIds.has(r.id) ? "checked" : "";
+        const rowUnits = r.qty * (prod.units_per_package || 1);
 
         rowDiv.innerHTML = `
           <input type="checkbox" id="chk-${r.id}" ${checked} onchange="toggleSelect(${r.id})">
           <label for="chk-${r.id}">
-            ID: ${r.id} — Qty: ${r.qty} — Owner: ${r.owner}
+            ID: ${r.id} — Qty: ${r.qty} (${rowUnits} units) — Owner: ${r.owner || "N/A"}
           </label>
         `;
 
@@ -103,8 +105,8 @@ async function loadUnassigned() {
   }
 }
 
-function toggleDetails(product_id) {
-  const box = document.getElementById(`details-${product_id}`);
+function toggleDetails(groupKey) {
+  const box = document.getElementById(`details-${escapeId(groupKey)}`);
   box.style.display = box.style.display === "none" ? "block" : "none";
 }
 
@@ -115,8 +117,8 @@ function toggleSelect(id) {
   updateActionButtons();
 }
 
-function selectGroup(product_id, selectAll) {
-  const details = document.querySelectorAll(`#details-${product_id} input[type=checkbox]`);
+function selectGroup(groupKey, selectAll) {
+  const details = document.querySelectorAll(`#details-${escapeId(groupKey)} input[type=checkbox]`);
 
   details.forEach(chk => {
     const id = parseInt(chk.id.replace("chk-", ""));
@@ -148,3 +150,38 @@ document.getElementById("moveBtn").onclick = () => {
   // Redirect to move UI
   window.location = "/move.html";
 };
+
+document.getElementById("deleteBtn").onclick = () => {
+  if (selectedIds.size === 0) return;
+
+  if (confirm(`Delete ${selectedIds.size} inventory item(s)?`)) {
+    deleteSelected();
+  }
+};
+
+async function deleteSelected() {
+  const ids = Array.from(selectedIds);
+  const deleteBtn = document.getElementById("deleteBtn");
+  deleteBtn.disabled = true;
+  deleteBtn.innerText = "Deleting...";
+
+  try {
+    for (const id of ids) {
+      await fetch(`/api/inventory/${id}`, { method: "DELETE" });
+    }
+    selectedIds.clear();
+    loadUnassigned();
+  } catch (err) {
+    alert(`Error deleting inventory: ${err.message}`);
+    deleteBtn.disabled = false;
+    deleteBtn.innerText = "Delete Selected";
+  }
+}
+
+/**
+ * Escape special characters in groupKey for use in HTML id attribute
+ * groupKey format: "product_id|lot"
+ */
+function escapeId(key) {
+  return key.replace(/[|]/g, "_");
+}
