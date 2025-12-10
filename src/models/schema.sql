@@ -3,7 +3,6 @@ CREATE TABLE IF NOT EXISTS products (
     barcode TEXT UNIQUE,
     brand TEXT,
     product_code TEXT,
-    lot TEXT,
     seed_size TEXT,
     package_type TEXT,
     units_per_package INTEGER DEFAULT 1
@@ -22,6 +21,7 @@ CREATE TABLE IF NOT EXISTS inventory (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     location_id INTEGER,
     product_id INTEGER,
+    lot TEXT,
     owner TEXT,
     qty INTEGER DEFAULT 1,
     FOREIGN KEY (location_id) REFERENCES locations(id),

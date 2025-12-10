@@ -14,7 +14,7 @@ router.get("/", (req, res) => {
       i.product_id,
       p.brand,
       p.product_code,
-      p.lot,
+      i.lot,
       p.seed_size,
       p.package_type,
       i.location_id,
@@ -52,7 +52,7 @@ router.get("/location/:id", (req, res) => {
       i.product_id,
       p.brand,
       p.product_code,
-      p.lot,
+      i.lot,
       p.seed_size,
       p.package_type,
       i.location_id,
@@ -91,7 +91,7 @@ router.get("/product/:id", (req, res) => {
       i.product_id,
       p.brand,
       p.product_code,
-      p.lot,
+      i.lot,
       p.seed_size,
       p.package_type,
       i.location_id,
@@ -118,9 +118,10 @@ router.get("/product/:id", (req, res) => {
 
 /**
  * ADD inventory (place product in a location)
+ * Accepts: { product_id, location_id, owner, qty, lot }
  */
 router.post("/", (req, res) => {
-  const { product_id, location_id, owner, qty } = req.body;
+  const { product_id, location_id, owner, qty, lot } = req.body;
 
   if (!product_id || !location_id || !qty) {
     return res.status(400).json({
@@ -132,10 +133,10 @@ router.post("/", (req, res) => {
 
   db.run(
     `
-    INSERT INTO inventory (product_id, location_id, owner, qty)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO inventory (product_id, location_id, lot, owner, qty)
+    VALUES (?, ?, ?, ?, ?)
     `,
-    [product_id, location_id, owner || null, qty],
+    [product_id, location_id, lot || null, owner || null, qty],
     function (err) {
       if (err) {
         console.error("Failed to insert inventory:", err);
@@ -239,11 +240,11 @@ router.post("/move", (req, res) => {
 
 /**
  * ADD inventory to UNASSIGNED location (receiving intake)
- * Body: { product_id, qty, owner }
+ * Body: { product_id, qty, owner, lot }
  */
 router.post("/unassigned", (req, res) => {
   const db = req.app.locals.db;
-  const { product_id, qty, owner } = req.body;
+  const { product_id, qty, owner, lot } = req.body;
 
   if (!product_id || !qty) {
     return res
@@ -255,10 +256,10 @@ router.post("/unassigned", (req, res) => {
 
   db.run(
     `
-    INSERT INTO inventory (product_id, location_id, owner, qty)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO inventory (product_id, location_id, lot, owner, qty)
+    VALUES (?, ?, ?, ?, ?)
     `,
-    [product_id, UNASSIGNED_ID, owner || "Keystone", qty],
+    [product_id, UNASSIGNED_ID, lot || null, owner || "Keystone", qty],
     function (err) {
       if (err) {
         console.error("Failed to insert unassigned inventory:", err);
@@ -290,7 +291,7 @@ router.get("/unassigned", (req, res) => {
       i.location_id,
       p.brand,
       p.product_code,
-      p.lot,
+      i.lot,
       p.seed_size,
       p.package_type,
       p.units_per_package
@@ -310,7 +311,7 @@ router.get("/unassigned", (req, res) => {
 // Receive inventory into UNASSIGNED area
 router.post("/receive", (req, res) => {
   const db = req.app.locals.db;
-  const { product_id, qty, owner } = req.body;
+  const { product_id, qty, owner, lot } = req.body;
 
   if (!product_id || !qty) {
     return res.status(400).json({ error: "Missing product_id or qty" });
@@ -318,10 +319,10 @@ router.post("/receive", (req, res) => {
 
   db.run(
     `
-    INSERT INTO inventory (product_id, qty, owner, location_id)
-    VALUES (?, ?, ?, 9999)
+    INSERT INTO inventory (product_id, qty, owner, location_id, lot)
+    VALUES (?, ?, ?, 9999, ?)
     `,
-    [product_id, qty, owner || "Keystone"],
+    [product_id, qty, owner || "Keystone", lot || null],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
 

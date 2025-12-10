@@ -228,7 +228,6 @@ async function saveNewProduct(barcode) {
         barcode,
         brand,
         product_code,
-        lot,
         seed_size,
         package_type,
         units_per_package
@@ -269,23 +268,14 @@ async function receiveInventory(product_id) {
   box.innerHTML = `<p>Receiving ${qty} units...</p>`;
 
   try {
-    // If there's a lot value, attempt to save it on the product first (PUT /api/products/:id)
-    if (newLot) {
-      await fetch(`/api/products/${product_id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lot: newLot })
-      });
-      // ignore response errors here — receive can still proceed; UI will surface server errors if needed
-    }
-
-    const res = await fetch("/api/inventory/receive", {
+      const res = await fetch("/api/inventory/receive", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         product_id,
         qty,
-        owner: "Keystone"
+        owner: "Keystone",
+        lot: newLot || null
       })
     });
 

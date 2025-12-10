@@ -7,7 +7,7 @@ const router = express.Router();
 router.get("/", (req, res) => {
   const db = req.app.locals.db;
 
-  const { brand, product, lot, size, package_type } = req.query;
+  const { brand, product, size, package_type } = req.query;
 
   let sql = `
     SELECT 
@@ -27,10 +27,6 @@ router.get("/", (req, res) => {
   if (product) {
     sql += " AND p.product_code LIKE ?";
     params.push(`%${product}%`);
-  }
-  if (lot) {
-    sql += " AND p.lot LIKE ?";
-    params.push(`%${lot}%`);
   }
   if (size) {
     sql += " AND p.seed_size = ?";
@@ -81,7 +77,6 @@ router.post("/", (req, res) => {
     barcode,
     brand,
     product_code,
-    lot,
     seed_size,
     package_type,
     units_per_package
@@ -90,14 +85,13 @@ router.post("/", (req, res) => {
   db.run(
     `
     INSERT INTO products 
-      (barcode, brand, product_code, lot, seed_size, package_type, units_per_package)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+      (barcode, brand, product_code, seed_size, package_type, units_per_package)
+    VALUES (?, ?, ?, ?, ?, ?)
     `,
     [
       barcode, 
       brand, 
       product_code, 
-      lot, 
       seed_size, 
       package_type,
       units_per_package || 1
@@ -111,7 +105,7 @@ router.post("/", (req, res) => {
 
 /**
  * Update product fields (partial update)
- * Accepts JSON body with fields to update, e.g. { lot: "LOT1234" }
+ * Accepts JSON body with fields to update
  */
 router.put("/:id", (req, res) => {
   const db = req.app.locals.db;
@@ -119,7 +113,7 @@ router.put("/:id", (req, res) => {
   const fields = req.body || {};
 
   // Build a dynamic update for only provided fields
-  const allowed = ["barcode", "brand", "product_code", "lot", "seed_size", "package_type", "units_per_package"];
+  const allowed = ["barcode", "brand", "product_code", "seed_size", "package_type", "units_per_package"];
   const sets = [];
   const params = [];
 

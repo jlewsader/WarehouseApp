@@ -33,7 +33,6 @@ async function loadProduct() {
     productInfoDiv.innerHTML = `
       <strong>Brand:</strong> ${product.brand}<br>
       <strong>Product Code:</strong> ${product.product_code}<br>
-      <strong>Lot:</strong> ${product.lot}<br>
       <strong>Seed Size:</strong> ${product.seed_size}<br>
       <strong>Package:</strong> ${product.package_type}<br>
       <strong>Total On-Hand:</strong> ${product.on_hand}
@@ -54,6 +53,7 @@ async function loadProduct() {
         (row) => `
         <div class="location-card">
           <strong>${row.location_label}</strong> (${row.zone})<br>
+          Lot: ${row.lot || "N/A"}<br>
           Qty: ${row.qty}<br>
           Owner: ${row.owner || "N/A"}
         </div>

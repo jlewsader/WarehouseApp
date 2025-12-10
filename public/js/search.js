@@ -7,8 +7,7 @@ async function searchProducts() {
     return;
   }
 
-  const url = `/api/products?brand=${encodeURIComponent(query)}&product=${encodeURIComponent(query)}&lot=${encodeURIComponent(query)}`;
-
+const url = `/api/products?brand=${encodeURIComponent(query)}&product=${encodeURIComponent(query)}`;
   try {
     const response = await fetch(url);
     const products = await response.json();
@@ -23,7 +22,6 @@ async function searchProducts() {
         (p) => `
         <div class="result-card" onclick="window.location='/product.html?id=${p.id}'">
           <strong>${p.brand || "Unknown Brand"}</strong> – ${p.product_code}<br>
-          Lot: ${p.lot}<br>
           On Hand: ${p.on_hand}
         </div>
       `
