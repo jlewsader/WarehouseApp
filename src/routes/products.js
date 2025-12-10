@@ -109,6 +109,49 @@ router.post("/", (req, res) => {
   );
 });
 
+/**
+ * Update product fields (partial update)
+ * Accepts JSON body with fields to update, e.g. { lot: "LOT1234" }
+ */
+router.put("/:id", (req, res) => {
+  const db = req.app.locals.db;
+  const { id } = req.params;
+  const fields = req.body || {};
+
+  // Build a dynamic update for only provided fields
+  const allowed = ["barcode", "brand", "product_code", "lot", "seed_size", "package_type", "units_per_package"];
+  const sets = [];
+  const params = [];
+
+  allowed.forEach((k) => {
+    if (Object.prototype.hasOwnProperty.call(fields, k)) {
+      sets.push(`${k} = ?`);
+      params.push(fields[k]);
+    }
+  });
+
+  if (sets.length === 0) {
+    return res.status(400).json({ error: "No updatable fields provided" });
+  }
+
+  params.push(id); // last param for WHERE
+
+  const sql = `UPDATE products SET ${sets.join(", ")} WHERE id = ?`;
+
+  db.run(sql, params, function (err) {
+    if (err) {
+      console.error("Update failed:", err);
+      return res.status(500).json({ error: err.message });
+    }
+
+    if (this.changes === 0) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    res.json({ message: "Product updated", id });
+  });
+});
+
 // Delete a product by ID
 router.delete("/:id", (req, res) => {
   const db = req.app.locals.db;
