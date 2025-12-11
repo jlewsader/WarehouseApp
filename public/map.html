@@ -13,14 +13,26 @@
 </header>
 
 <main>
+  <section class="map-header">
+    <p class="map-description">
+      Browse the warehouse map to see which locations have inventory. Each grid cell shows the
+      three tiers (Top, Middle, Bottom) inside a stack.
+    </p>
+    <div class="zone-selector">
+      <button onclick="loadZone('Center')">Center Block</button>
+      <button onclick="loadZone('East Wall')">East Wall</button>
+      <button onclick="loadZone('West Wall')">West Wall</button>
+    </div>
+  </section>
 
-  <div class="zone-selector">
-    <button onclick="loadZone('Center')">Center Block</button>
-    <button onclick="loadZone('East')">East Wall</button>
-    <button onclick="loadZone('West')">West Wall</button>
-  </div>
+  <section class="map-legend">
+    <div class="legend-item"><span class="legend-dot occupied"></span>Has item</div>
+    <div class="legend-item"><span class="legend-dot empty"></span>Empty</div>
+  </section>
 
-  <div id="mapContainer" class="map-container">
+  <div id="mapStatus" class="map-status" aria-live="polite"></div>
+
+  <div id="mapContainer" class="map-container" aria-live="polite">
     <!-- Grid loads here -->
   </div>
 
