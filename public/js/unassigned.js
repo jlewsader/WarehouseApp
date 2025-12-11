@@ -16,6 +16,8 @@ async function loadUnassigned() {
 
     if (!items.length) {
       container.innerHTML = "<p>No unassigned inventory.</p>";
+      updateActionButtons();
+      attachButtonListeners();
       return;
     }
 
@@ -103,6 +105,32 @@ async function loadUnassigned() {
   } catch (err) {
     container.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
   }
+
+  // Re-wire button events (they may be new DOM elements after render)
+  attachButtonListeners();
+}
+
+function attachButtonListeners() {
+  const moveBtn = document.getElementById("moveBtn");
+  const deleteBtn = document.getElementById("deleteBtn");
+
+  if (moveBtn) {
+    moveBtn.onclick = () => {
+      if (selectedIds.size === 0) return;
+      localStorage.setItem("moveSelection", JSON.stringify([...selectedIds]));
+      window.location = "/move.html";
+    };
+  }
+
+  if (deleteBtn) {
+    deleteBtn.onclick = () => {
+      if (selectedIds.size === 0) return;
+      deleteBtn.disabled = true;
+      deleteBtn.innerText = "Deleting...";
+      // Defer work to next tick - completely outside handler
+      setTimeout(() => deleteSelected(), 0);
+    };
+  }
 }
 
 function toggleDetails(groupKey) {
@@ -137,44 +165,47 @@ function updateActionButtons() {
 
   const hasSelection = selectedIds.size > 0;
 
-  moveBtn.disabled = !hasSelection;
-  deleteBtn.disabled = !hasSelection;
+  if (moveBtn) moveBtn.disabled = !hasSelection;
+  if (deleteBtn) deleteBtn.disabled = !hasSelection;
 }
 
-document.getElementById("moveBtn").onclick = () => {
-  if (selectedIds.size === 0) return;
-
-  // Store selected IDs so Move page can read them
-  localStorage.setItem("moveSelection", JSON.stringify([...selectedIds]));
-
-  // Redirect to move UI
-  window.location = "/move.html";
-};
-
-document.getElementById("deleteBtn").onclick = () => {
-  if (selectedIds.size === 0) return;
-
-  if (confirm(`Delete ${selectedIds.size} inventory item(s)?`)) {
-    deleteSelected();
-  }
-};
 
 async function deleteSelected() {
   const ids = Array.from(selectedIds);
-  const deleteBtn = document.getElementById("deleteBtn");
-  deleteBtn.disabled = true;
-  deleteBtn.innerText = "Deleting...";
 
   try {
-    for (const id of ids) {
-      await fetch(`/api/inventory/${id}`, { method: "DELETE" });
+    // Delete all in parallel instead of one-by-one
+    const deletePromises = ids.map(id =>
+      fetch(`/api/inventory/${id}`, { method: "DELETE" })
+        .then(res => {
+          if (!res.ok) {
+            console.error(`Failed to delete inventory ${id}:`, res.status, res.statusText);
+            return { failed: id };
+          }
+          return { success: id };
+        })
+        .catch(err => {
+          console.error(`Error deleting ${id}:`, err);
+          return { failed: id };
+        })
+    );
+
+    const results = await Promise.all(deletePromises);
+    const failedIds = results.filter(r => r.failed).map(r => r.failed);
+
+    if (failedIds.length > 0) {
+      alert(`Failed to delete ${failedIds.length} item(s). See console for details.`);
+      // Reload on error
+      window.location.href = '/unassigned.html';
+    } else {
+      // Success - all deleted, redirect
+      selectedIds.clear();
+      window.location.href = '/unassigned.html';
     }
-    selectedIds.clear();
-    loadUnassigned();
   } catch (err) {
+    console.error("Delete error:", err);
     alert(`Error deleting inventory: ${err.message}`);
-    deleteBtn.disabled = false;
-    deleteBtn.innerText = "Delete Selected";
+    window.location.href = '/unassigned.html';
   }
 }
 
