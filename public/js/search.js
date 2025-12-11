@@ -29,7 +29,7 @@ const url = `/api/products?brand=${encodeURIComponent(query)}&product=${encodeUR
       .join("");
 
   } catch (err) {
-    resultsDiv.innerHTML = \`<p>Error: \${err.message}</p>\`;
+    resultsDiv.innerHTML = `<p>Error: ${err.message}</p>`;
   }
 }
 
