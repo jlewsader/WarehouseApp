@@ -1,0 +1,9 @@
+# Databases
+*.db
+
+# Node
+node_modules/
+.env
+
+# Github Copilot Instructions
+.github/copilot-instructions.md
