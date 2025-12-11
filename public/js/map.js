@@ -95,25 +95,57 @@ function createTier(levelLabel, location) {
     return tier;
   }
 
-  const locationKey = getLocationKey(location.id);
   const items = getItemsForLocation(location);
   const occupied = items.length > 0;
   tier.classList.add(occupied ? "tier-occupied" : "tier-empty");
 
+  const primaryItem = occupied ? items[0] : null;
+  const primaryLabel = primaryItem
+    ? `${primaryItem.brand || ""}${
+        primaryItem.brand && primaryItem.product_code ? " " : ""
+      }${primaryItem.product_code || ""}`.trim() || "Inventory"
+    : "Empty";
+  const statusText = occupied
+    ? `${primaryLabel}${items.length > 1 ? ` (+${items.length - 1} more)` : ""}`
+    : "Empty";
+
   tier.innerHTML = `
     <div class="tier-row">
       <span class="tier-label">${levelLabel}</span>
-      <span class="tier-status">${occupied ? "Has item" : "Empty"}</span>
+      <span class="tier-status">${statusText}</span>
     </div>
     <div class="tier-code">${location.label}</div>
   `;
 
   tier.addEventListener("click", () => {
     const itemsInSlot = getItemsForLocation(location);
-    const message = itemsInSlot.length
-      ? `Items in ${location.label}: ${itemsInSlot.length}`
-      : `No items in ${location.label}`;
-    alert(message);
+    if (!itemsInSlot.length) {
+      alert(`No items in ${location.label}`);
+      return;
+    }
+
+    const details = itemsInSlot
+      .map((item, idx) => {
+        const title = `${idx + 1}. ${
+          (item.brand && item.product_code
+            ? `${item.brand} ${item.product_code}`
+            : item.brand || item.product_code || "Inventory"
+          ).trim()
+        }`;
+
+        const lines = [
+          `Lot: ${item.lot || "N/A"}`,
+          `Seed size: ${item.seed_size || "N/A"}`,
+          `Package: ${item.package_type || "N/A"}`,
+          `Owner: ${item.owner || "N/A"}`,
+          `Inventory ID: ${item.id}`,
+        ].join("\n  ");
+
+        return `${title}\n  ${lines}`;
+      })
+      .join("\n\n");
+
+    alert(`Items in ${location.label} (${itemsInSlot.length}):\n\n${details}`);
   });
 
   return tier;
