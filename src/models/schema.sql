@@ -26,3 +26,12 @@ CREATE TABLE IF NOT EXISTS inventory (
     FOREIGN KEY (location_id) REFERENCES locations(id),
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
+
+-- Seed a few test locations so the UI has data for development
+INSERT OR IGNORE INTO locations (label, row_index, col_index, zone) VALUES
+    ('C-R1-C1-T', 1, 1, 'Center'),
+    ('C-R1-C1-M', 1, 1, 'Center'),
+    ('C-R1-C1-B', 1, 1, 'Center'),
+    ('E-R5-C1-T', 5, 1, 'East Wall'),
+    ('W-R2-C3-T', 2, 3, 'West Wall'),
+    ('C-R10-C4-M', 10, 4, 'Center');
