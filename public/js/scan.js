@@ -117,6 +117,18 @@ function parseGS1(raw) {
   return { raw, gtin, lot };
 }
 
+// Common dropdown options for new-product form
+const BRANDS = ["Keystone", "Dekalb", "Croplan", "Brevant", "Asgrow", "Armor", "Agrigold", "NK", "Xitavo"];
+const SEED_SIZES = ["MP", "MF", "MR", "LP", "AF", "AF2", "AR", "AR2", "CPR2", "CPF2", "CPR", "CPF", "CPP", "F1", "F2", "R1", "R2"];
+const PACKAGE_TYPES = ["SP50", "SP45", "SP40", "SP35", "SP30", "MB45", "MB40", "80M", "140M"];
+
+function onSelectOther(prefix) {
+  const sel = document.getElementById(prefix + "Select");
+  const other = document.getElementById(prefix + "Other");
+  if (!sel || !other) return;
+  other.style.display = sel.value === "__OTHER__" ? "inline-block" : "none";
+}
+
 /*** MAIN LOOKUP FUNCTION ***/
 async function lookupBarcode(barcode) {
   const box = document.getElementById("resultBox");
@@ -183,15 +195,46 @@ function continueReceiving() {
 function renderNewProductForm(barcode, parsedLot) {
   const box = document.getElementById("resultBox");
 
+  // build options HTML
+  const brandOptions = BRANDS.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join("");
+  const sizeOptions = SEED_SIZES.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+  const pkgOptions = PACKAGE_TYPES.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("");
+
   box.innerHTML = `
     <h3>New Product</h3>
     <p>Barcode (GTIN): <strong>${barcode}</strong></p>
 
-    <label>Brand<br><input id="pBrand"></label><br>
+    <label>Brand<br>
+      <select id="pBrandSelect" onchange="onSelectOther('pBrand')">
+        <option value="">-- Select Brand --</option>
+        ${brandOptions}
+        <option value="__OTHER__">Other...</option>
+      </select>
+      <input id="pBrandOther" placeholder="Type brand" style="display:none; margin-left:8px;">
+    </label><br>
+
     <label>Product Code / Description<br><input id="pCode"></label><br>
+
     <label>Lot<br><input id="pLot" value="${escapeHtml(parsedLot || "")}"></label><br>
-    <label>Seed Size<br><input id="pSize"></label><br>
-    <label>Package Type<br><input id="pPackage"></label><br>
+
+    <label>Seed Size<br>
+      <select id="pSizeSelect" onchange="onSelectOther('pSize')">
+        <option value="">-- Select Size --</option>
+        ${sizeOptions}
+        <option value="__OTHER__">Other...</option>
+      </select>
+      <input id="pSizeOther" placeholder="Type size" style="display:none; margin-left:8px;">
+    </label><br>
+
+    <label>Package Type<br>
+      <select id="pPackageSelect" onchange="onSelectOther('pPackage')">
+        <option value="">-- Select Package --</option>
+        ${pkgOptions}
+        <option value="__OTHER__">Other...</option>
+      </select>
+      <input id="pPackageOther" placeholder="Type package" style="display:none; margin-left:8px;">
+    </label><br>
+
     <br>
 
     <button onclick="saveNewProduct('${barcode}')">Save Product</button>
@@ -205,17 +248,35 @@ function cancelNewProduct() {
 
 /*** SAVE PRODUCT ***/
 async function saveNewProduct(barcode) {
-  const brand = document.getElementById("pBrand").value.trim();
-  const product_code = document.getElementById("pCode").value.trim();
-  const lot = document.getElementById("pLot").value.trim();
-  const seed_size = document.getElementById("pSize").value.trim();
-  const package_type = document.getElementById("pPackage").value.trim();
+  // Read dropdowns (allow 'Other' input fields)
+  const brandSel = document.getElementById("pBrandSelect");
+  const brand = (brandSel.value === "__OTHER__") ? document.getElementById("pBrandOther").value.trim() : brandSel.value.trim();
 
+  const product_code = document.getElementById("pCode").value.trim();
+
+  const lot = document.getElementById("pLot").value.trim();
+
+  const sizeSel = document.getElementById("pSizeSelect");
+  const seed_size = (sizeSel.value === "__OTHER__") ? document.getElementById("pSizeOther").value.trim() : sizeSel.value.trim();
+
+  const pkgSel = document.getElementById("pPackageSelect");
+  const package_type = (pkgSel.value === "__OTHER__") ? document.getElementById("pPackageOther").value.trim() : pkgSel.value.trim();
+
+  // Determine units per package
   let units_per_package = 1;
-  // TODO: Continue adding common package types.
-  if (package_type.toUpperCase() === "SP50") units_per_package = 50;
-  if (package_type.toUpperCase() === "BOX50") units_per_package = 50;
-  if (package_type.toUpperCase() === "50") units_per_package = 50;
+  const pkg = (package_type || "").toUpperCase();
+  const manualMap = { MB45: 45, MB40: 40, PB80: 1, "80M": 1, PB140: 1, "140M": 1 };
+
+  if (manualMap[pkg] !== undefined) units_per_package = manualMap[pkg];
+  else {
+    const match = pkg.match(/(\d+)$/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if ([50, 45, 40, 35, 30, 25, 20].includes(num)) units_per_package = num;
+      else if ([80, 140].includes(num)) units_per_package = 1;
+      else units_per_package = 1;
+    }
+  }
 
   const box = document.getElementById("resultBox");
   box.innerHTML = `<p>Saving product...</p>`;
@@ -241,10 +302,20 @@ async function saveNewProduct(barcode) {
       return;
     }
 
-    box.innerHTML = `
-      <p>Product saved successfully!</p>
-      <button onclick="continueReceiving()">Continue Receiving</button>
-    `;
+    // After creating the product, load the product by barcode and render the product-found view
+    const lookupRes = await fetch(`/api/products/barcode/${encodeURIComponent(barcode)}`);
+    if (lookupRes.ok) {
+      const created = await lookupRes.json();
+      // Use the lot value currently in the form as parsed/prefill
+      const parsedLot = document.getElementById("pLot").value.trim();
+      renderProductFound(created, parsedLot);
+    } else {
+      // fallback: show continue button
+      box.innerHTML = `
+        <p>Product saved successfully!</p>
+        <button onclick="continueReceiving()">Continue Receiving</button>
+      `;
+    }
 
   } catch (err) {
     box.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
