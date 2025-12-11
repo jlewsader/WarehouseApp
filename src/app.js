@@ -38,49 +38,37 @@ const init = () => {
   const schemaPath = path.resolve("src/models/schema.sql");
   const schema = fs.readFileSync(schemaPath, "utf8");
 
-db.exec(schema, (err) => {
-  if (err) {
-    console.error("Failed to initialize schema:", err);
-  } else {
-    console.log("Database schema loaded.");
+  db.exec(schema, (err) => {
+    if (err) {
+      console.error("Failed to initialize schema:", err);
+    } else {
+      console.log("Database schema loaded.");
 
-    // Ensure UNASSIGNED location exists
-    db.run(
-      `
-      INSERT OR IGNORE INTO locations (id, label, row_index, col_index, zone)
-      VALUES (9999, 'UNASSIGNED', 0, 0, 'UNASSIGNED')
-      `,
-      (err2) => {
-        if (err2) {
-          console.error("Failed to seed UNASSIGNED location:", err2);
-        } else {
-          console.log("UNASSIGNED location ready.");
+      // Ensure UNASSIGNED location exists
+      db.run(
+        `
+        INSERT OR IGNORE INTO locations (id, label, row_index, col_index, zone)
+        VALUES (9999, 'UNASSIGNED', 0, 0, 'UNASSIGNED')
+        `,
+        (err2) => {
+          if (err2) {
+            console.error("Failed to seed UNASSIGNED location:", err2);
+          } else {
+            console.log("UNASSIGNED location ready.");
+          }
         }
-      }
-    );
-  }
+      );
+    }
 
-  // Register API routes
-  app.use("/api/products", productsRouter);
-  app.use("/api/inventory", inventoryRouter);
-  app.use("/api/locations", locationsRouter);
+    // Register API routes
+    app.use("/api/products", productsRouter);
+    app.use("/api/inventory", inventoryRouter);
+    app.use("/api/locations", locationsRouter);
 
-  app.listen(PORT, () => {
-    console.log(`Warehouse API running on port ${PORT}`);
-  });
-});
-
-  // Register API routes
-  console.log("Registering routes...");
-  app.use("/api/products", productsRouter);
-  app.use("/api/inventory", inventoryRouter);
-  app.use("/api/locations", locationsRouter);
-  console.log("Routes registered.");
-
-  app.listen(PORT, () => {
-    console.log(`Warehouse API running on port ${PORT}`);
+    app.listen(PORT, () => {
+      console.log(`Warehouse API running on port ${PORT}`);
+    });
   });
 };
-
 
 init();

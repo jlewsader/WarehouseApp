@@ -1,281 +1,248 @@
 console.log("move.js loaded");
 
 let selectedIds = [];
-let selectedLocationLabel = null;
-let selectedLocationIds = []; // support multi-selection targets
+let selectedLocations = []; // Array of location IDs, one per item
 
 window.onload = () => {
   const data = localStorage.getItem("moveSelection");
   if (!data) {
     alert("No items selected for move.");
+    window.location.href = "/unassigned.html";
     return;
   }
 
   selectedIds = JSON.parse(data);
+  
+  // Display selected inventory items and required location selections
   const listDiv = document.getElementById("selectedList");
+  const heading = document.createElement("div");
+  heading.className = "selection-heading";
+  heading.innerHTML = `<strong>Items to move: ${selectedIds.length}</strong><br><small>Select ${selectedIds.length} target location(s)</small>`;
+  listDiv.appendChild(heading);
 
-  selectedIds.forEach(id => {
-    const p = document.createElement("p");
-    p.textContent = `Inventory ID: ${id}`;
-    listDiv.appendChild(p);
+  selectedIds.forEach((id, idx) => {
+    const div = document.createElement("div");
+    div.className = "inventory-item";
+    div.textContent = `${idx + 1}. Inventory ID: ${id}`;
+    listDiv.appendChild(div);
   });
 
-  setupGrid();
+  // Load and render location grid
+  loadLocationGrid();
 };
 
-// Render a scalable grid of selectable locations.
-async function setupGrid() {
-  // Fetch actual locations and inventory to determine availability.
-  let locations = [];
-  try {
-    const res = await fetch("/api/locations");
-    if (!res.ok) throw new Error(`Failed to load locations: ${res.status}`);
-    locations = await res.json();
-  } catch (err) {
-    console.error("Failed to fetch locations:", err);
-    // fallback to small static set if server call fails
-    locations = [
-      { id: null, label: "C-R1-C1-1" },
-      { id: null, label: "C-R1-C1-2" },
-      { id: null, label: "C-R1-C2-1" },
-      { id: null, label: "E-R5-C1-1" },
-      { id: null, label: "W-R2-C3-1" },
-      { id: null, label: "C-R10-C4-2" },
-    ];
-  }
+/**
+ * Fetch locations, determine occupancy, and render grid
+ */
+async function loadLocationGrid() {
+  const statusEl = document.getElementById("gridStatus");
+  const gridEl = document.getElementById("locationGrid");
 
-  // Fetch inventory and compute occupied location ids
-  let occupied = new Set();
   try {
+    // Fetch all locations from API
+    const locRes = await fetch("/api/locations");
+    if (!locRes.ok) throw new Error(`Failed to load locations: ${locRes.status}`);
+    let locations = await locRes.json();
+
+    // If no locations from DB, use fallback for testing
+    if (!locations || locations.length === 0) {
+      locations = generateFallbackLocations();
+    }
+
+    // Fetch all inventory to determine occupied locations
     const invRes = await fetch("/api/inventory");
+    let occupied = new Set();
     if (invRes.ok) {
-      const inv = await invRes.json();
-      inv.forEach(row => {
-        if (row.location_id) occupied.add(row.location_id);
+      const inventory = await invRes.json();
+      inventory.forEach(item => {
+        if (item.location_id && item.location_id !== 9999) {
+          occupied.add(item.location_id);
+        }
       });
     }
-  } catch (err) {
-    console.error("Failed to fetch inventory for occupancy:", err);
-  }
 
-  // We will render up to 6 locations for testing; choose the first 6
-  const toShow = locations.slice(0, 6);
+    // Show up to 6 locations for testing
+    const displayLocations = locations.slice(0, 6);
 
-  let grid = document.getElementById("locationGrid");
-  if (!grid) {
-    grid = document.createElement("div");
-    grid.id = "locationGrid";
-    grid.style.display = "grid";
-    grid.style.gridTemplateColumns = "repeat(3, 1fr)";
-    grid.style.gap = "8px";
-    grid.style.marginTop = "12px";
-
-    const container = document.getElementById("selectedList") || document.body;
-    container.parentNode.insertBefore(grid, container.nextSibling);
-  }
-
-  grid.innerHTML = "";
-
-  const multiSelect = selectedIds.length > 1;
-
-  toShow.forEach(loc => {
-    const tile = document.createElement("button");
-    tile.type = "button";
-    tile.className = "loc-tile";
-    tile.textContent = loc.label;
-    tile.dataset.label = loc.label;
-    tile.dataset.id = loc.id;
-    tile.style.padding = "8px";
-    tile.style.border = "1px solid #444";
-    tile.style.borderRadius = "4px";
-    tile.style.background = "#fff";
-    tile.style.cursor = "pointer";
-    tile.style.minHeight = "40px";
-
-    const isOccupied = loc.id != null && occupied.has(loc.id);
-    if (isOccupied) {
-      tile.disabled = true;
-      tile.style.opacity = "0.5";
-      tile.title = "Occupied - cannot move here";
-      tile.textContent = `${loc.label} (occupied)`;
-    } else {
-      // selection behavior: single select or multi-select depending on how many items are being moved
-      tile.onclick = () => {
-        if (!multiSelect) {
-          Array.from(grid.children).forEach(c => {
-            c.style.background = "#fff";
-            c.style.color = "#000";
-          });
-          tile.style.background = "#2b82ff";
-          tile.style.color = "#fff";
-          selectedLocationLabel = tile.dataset.label;
-          selectedLocationIds = [tile.dataset.id || null];
-        } else {
-          // toggle selection for multi-select
-          const idx = selectedLocationIds.indexOf(tile.dataset.id || null);
-          if (idx === -1) {
-            // enforce limit
-            if (selectedLocationIds.length >= selectedIds.length) {
-              alert(`You can only select ${selectedIds.length} locations for this move.`);
-              return;
-            }
-            selectedLocationIds.push(tile.dataset.id || null);
-            tile.style.background = "#2b82ff";
-            tile.style.color = "#fff";
-          } else {
-            selectedLocationIds.splice(idx, 1);
-            tile.style.background = "#fff";
-            tile.style.color = "#000";
-          }
-        }
-      };
-    }
-
-    grid.appendChild(tile);
-  });
-
-  // Add a small hint
-  const hint = document.createElement("div");
-  hint.textContent = "Select a target location, then click Move.";
-  hint.style.marginTop = "8px";
-  hint.style.fontSize = "0.9em";
-  grid.parentNode.insertBefore(hint, grid.nextSibling);
-}
-
-async function moveInventory() {
-  try {
-    if (!selectedIds || selectedIds.length === 0) {
-      alert("No inventory selected.");
+    if (displayLocations.length === 0) {
+      statusEl.textContent = "No locations available.";
       return;
     }
 
-    // Determine target label: prefer the selected grid tile if present
-    let label = selectedLocationLabel || null;
+    statusEl.textContent = `${displayLocations.length} locations available`;
+    gridEl.innerHTML = "";
 
-    if (!label) {
-      // fallback to legacy dropdowns if the grid wasn't used
-      const zoneEl = document.getElementById("zoneSelect");
-      const rowEl = document.getElementById("rowSelect");
-      const stackEl = document.getElementById("stackSelect");
-      const levelEl = document.getElementById("levelSelect");
+    // Render location tiles
+    displayLocations.forEach(loc => {
+      const tile = document.createElement("button");
+      tile.type = "button";
+      tile.className = "location-tile";
+      tile.dataset.id = loc.id;
+      tile.dataset.label = loc.label;
 
-      if (!zoneEl || !rowEl || !stackEl || !levelEl) {
-        alert("No target location selected.");
-        return;
-      }
+      const isOccupied = occupied.has(loc.id);
+      const isSelected = selectedLocations.includes(loc.id);
 
-      const zone = zoneEl.value;
-      const row = rowEl.value;
-      const stack = stackEl.value;
-      const level = levelEl.value;
+      // Build display text
+      let displayText = loc.label || `Location ${loc.id}`;
+      let statusText = "";
 
-      let prefix = "C";
-      if (zone === "East") prefix = "E";
-      if (zone === "West") prefix = "W";
-
-      label = `${prefix}-R${row}-C${stack}-${level}`;
-    }
-
-    console.log("Target label:", label);
-
-    // If multiple inventory rows are selected, expect multiple target locations
-    if (selectedIds.length > 1) {
-      if (!selectedLocationIds || selectedLocationIds.length !== selectedIds.length) {
-        alert(`Please select ${selectedIds.length} target locations (one per item).`);
-        return;
-      }
-
-      // Resolve any null ids by looking up labels
-      const resolvedIds = [];
-      for (const lid of selectedLocationIds) {
-        if (lid) {
-          resolvedIds.push(parseInt(lid, 10));
-          continue;
-        }
-        // find the button with this label in the grid
-        const btn = Array.from(document.querySelectorAll('.loc-tile'))
-          .find(b => (b.dataset.id === lid || (!b.dataset.id && b.dataset.label && selectedLocationIds.includes(b.dataset.id))));
-        // fallback: try lookup by label from selectedLocationLabel (not ideal for multi)
-        // As a safer approach, call by-label for each selected label found on tiles
-      }
-
-      // We'll perform sequential moves: one POST per inventory id -> to_location_id
-      for (let i = 0; i < selectedIds.length; i++) {
-        let targetId = selectedLocationIds[i];
-        let targetLabel = null;
-
-        if (!targetId) {
-          // need to lookup by label from the tile text (match by order of selection)
-          // Find the i-th selected tile in document order
-          const selectedButtons = Array.from(document.querySelectorAll('.loc-tile'))
-            .filter(b => b.style.background === 'rgb(43, 130, 255)' || b.style.background === '#2b82ff');
-          const btn = selectedButtons[i];
-          if (!btn) {
-            alert('Failed to map selected locations to targets.');
-            return;
-          }
-          targetLabel = btn.dataset.label;
-          const lookupRes = await fetch(`/api/locations/by-label/${encodeURIComponent(targetLabel)}`);
-          if (!lookupRes.ok) {
-            const txt = await lookupRes.text();
-            alert(`Location lookup failed (${lookupRes.status}): ${txt}`);
-            return;
-          }
-          const locObj = await lookupRes.json();
-          targetId = locObj.id;
-        }
-
-        const moveRes = await fetch('/api/inventory/move', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inventory_ids: [selectedIds[i]], to_location_id: targetId })
-        });
-
-        const resp = await moveRes.json();
-        if (!moveRes.ok) {
-          alert(`Move failed for inventory ${selectedIds[i]}: ${resp.error || JSON.stringify(resp)}`);
-          return;
+      if (isOccupied) {
+        tile.disabled = true;
+        tile.classList.add("occupied");
+        statusText = " (occupied)";
+      } else {
+        tile.onclick = () => selectLocation(tile, loc.id);
+        if (isSelected) {
+          tile.classList.add("selected");
+          const selectionIndex = selectedLocations.indexOf(loc.id) + 1;
+          statusText = ` (selection #${selectionIndex})`;
         }
       }
 
-      alert(`Moved ${selectedIds.length} entries to ${selectedIds.length} locations.`);
-      localStorage.removeItem('moveSelection');
-      window.location = '/unassigned.html';
-      return;
-    }
+      tile.innerHTML = `
+        <div>${displayText}</div>
+        <div class="status-text">${statusText || "Available"}</div>
+      `;
 
-    // Single-item move (existing flow)
-    const locRes = await fetch(`/api/locations/by-label/${encodeURIComponent(label)}`);
-    if (!locRes.ok) {
-      const txt = await locRes.text();
-      alert(`Location lookup failed (${locRes.status}): ${txt}`);
-      return;
-    }
-    const location = await locRes.json();
-    console.log('Location row:', location);
-
-    // Call inventory/move (keeps original request shape)
-    const moveRes = await fetch('/api/inventory/move', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inventory_ids: selectedIds, to_location_id: location.id })
+      gridEl.appendChild(tile);
     });
 
-    const body = await moveRes.json();
-    if (!moveRes.ok) {
-      alert(`Move failed: ${body.error || JSON.stringify(body)}`);
-      return;
-    }
-
-    alert(`Moved ${selectedIds.length} entries to ${label}.`);
-    localStorage.removeItem("moveSelection");
-    window.location = "/unassigned.html";
   } catch (err) {
-    console.error("Move error:", err);
-    alert("Unexpected move error: " + err.message);
+    console.error("Failed to load locations:", err);
+    statusEl.textContent = `Error loading locations: ${err.message}`;
   }
 }
 
-function cancelMove() {
-  window.location = "/unassigned.html";
+/**
+ * Fallback locations for testing (6 locations)
+ */
+function generateFallbackLocations() {
+  return [
+    { id: 1, label: "C-R1-C1", zone: "Center", row_index: 1, col_index: 1 },
+    { id: 2, label: "C-R1-C2", zone: "Center", row_index: 1, col_index: 2 },
+    { id: 3, label: "E-R5-C1", zone: "East", row_index: 5, col_index: 1 },
+    { id: 4, label: "E-R5-C2", zone: "East", row_index: 5, col_index: 2 },
+    { id: 5, label: "W-R2-C1", zone: "West", row_index: 2, col_index: 1 },
+    { id: 6, label: "W-R2-C2", zone: "West", row_index: 2, col_index: 2 },
+  ];
 }
+
+/**
+ * Handle location tile selection (toggle, allows multiple selections)
+ */
+function selectLocation(tile, locationId) {
+  // Check if already selected
+  if (selectedLocations.includes(locationId)) {
+    // Deselect
+    selectedLocations = selectedLocations.filter(id => id !== locationId);
+    tile.classList.remove("selected");
+    updateSelectionDisplay();
+  } else {
+    // Can only select up to N locations where N = number of items
+    if (selectedLocations.length < selectedIds.length) {
+      selectedLocations.push(locationId);
+      tile.classList.add("selected");
+      updateSelectionDisplay();
+    } else {
+      alert(`You can only select ${selectedIds.length} location(s)`);
+    }
+  }
+}
+
+/**
+ * Update selection display and enable/disable move button
+ */
+function updateSelectionDisplay() {
+  const moveBtn = document.getElementById("moveBtn");
+  const statusEl = document.getElementById("gridStatus");
+
+  // Rebuild grid to show selection numbers
+  loadLocationGrid();
+
+  // Update button state
+  const selectionComplete = selectedLocations.length === selectedIds.length;
+  if (moveBtn) {
+    moveBtn.disabled = !selectionComplete;
+    if (selectionComplete) {
+      statusEl.textContent = `All ${selectedIds.length} locations selected ✓`;
+    } else {
+      statusEl.textContent = `Select ${selectedIds.length - selectedLocations.length} more location(s)`;
+    }
+  }
+}
+
+/**
+ * Move all selected inventory to their respective target locations
+ * Pairs each inventory ID with its corresponding selected location (in order)
+ */
+async function moveInventory() {
+  if (!selectedIds || selectedIds.length === 0) {
+    alert("No inventory items selected.");
+    return;
+  }
+
+  if (selectedLocations.length !== selectedIds.length) {
+    alert(`Please select ${selectedIds.length} target location(s).`);
+    return;
+  }
+
+  const moveBtn = document.getElementById("moveBtn");
+  moveBtn.disabled = true;
+  moveBtn.textContent = "Moving...";
+
+  try {
+    // Move items one at a time, each to its corresponding selected location
+    let successCount = 0;
+    for (let i = 0; i < selectedIds.length; i++) {
+      const invId = selectedIds[i];
+      const targetLocId = selectedLocations[i];
+
+      const response = await fetch("/api/inventory/move", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inventory_ids: [invId],
+          to_location_id: targetLocId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error(`Failed to move item ${i + 1} (ID: ${invId}):`, result.error);
+      } else {
+        successCount++;
+      }
+    }
+
+    if (successCount === selectedIds.length) {
+      alert(`Successfully moved all ${successCount} item(s)!`);
+      localStorage.removeItem("moveSelection");
+      window.location.href = "/unassigned.html";
+    } else {
+      alert(`Moved ${successCount}/${selectedIds.length} items. Some failed - see console.`);
+      moveBtn.disabled = false;
+      moveBtn.textContent = "Confirm Move";
+    }
+
+  } catch (err) {
+    console.error("Move error:", err);
+    alert(`Error during move: ${err.message}`);
+    moveBtn.disabled = false;
+    moveBtn.textContent = "Confirm Move";
+  }
+}
+
+/**
+ * Cancel the move operation
+ */
+function cancelMove() {
+  if (confirm("Cancel move operation?")) {
+    localStorage.removeItem("moveSelection");
+    window.location.href = "/unassigned.html";
+  }
+}
+
