@@ -55,7 +55,8 @@ async function loadUnassigned() {
 
     groupArr.forEach(([groupKey, rows]) => {
       const prod = rows[0];
-      const totalQty = rows.reduce((sum, r) => sum + r.qty, 0);
+      // Each row is now 1 item, so totalQty = count of rows
+      const totalQty = rows.length;
       const totalUnits = totalQty * (prod.units_per_package || 1);
 
       const div = document.createElement("div");
@@ -87,12 +88,12 @@ async function loadUnassigned() {
         rowDiv.className = "detail-row";
 
         const checked = selectedIds.has(r.id) ? "checked" : "";
-        const rowUnits = r.qty * (prod.units_per_package || 1);
+        const rowUnits = prod.units_per_package || 1;
 
         rowDiv.innerHTML = `
           <input type="checkbox" id="chk-${r.id}" ${checked} onchange="toggleSelect(${r.id})">
           <label for="chk-${r.id}">
-            ID: ${r.id} — Qty: ${r.qty} (${rowUnits} units) — Owner: ${r.owner || "N/A"}
+            ID: ${r.id} — Qty: 1 (${rowUnits} units) — Owner: ${r.owner || "N/A"}
           </label>
         `;
 

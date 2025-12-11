@@ -20,8 +20,7 @@ router.get("/", (req, res) => {
       i.location_id,
       l.label AS location_label,
       l.zone,
-      i.owner,
-      i.qty
+      i.owner
     FROM inventory i
     JOIN products p ON p.id = i.product_id
     JOIN locations l ON l.id = i.location_id
@@ -58,8 +57,7 @@ router.get("/location/:id", (req, res) => {
       i.location_id,
       l.label AS location_label,
       l.zone,
-      i.owner,
-      i.qty
+      i.owner
     FROM inventory i
     JOIN products p ON p.id = i.product_id
     JOIN locations l ON l.id = i.location_id
@@ -97,8 +95,7 @@ router.get("/product/:id", (req, res) => {
       i.location_id,
       l.label AS location_label,
       l.zone,
-      i.owner,
-      i.qty
+      i.owner
     FROM inventory i
     JOIN products p ON p.id = i.product_id
     JOIN locations l ON l.id = i.location_id
@@ -118,6 +115,7 @@ router.get("/product/:id", (req, res) => {
 
 /**
  * ADD inventory (place product in a location)
+ * Creates N inventory rows for qty N
  * Accepts: { product_id, location_id, owner, qty, lot }
  */
 router.post("/", (req, res) => {
@@ -130,21 +128,48 @@ router.post("/", (req, res) => {
   }
 
   const db = req.app.locals.db;
+  const qtyNum = parseInt(qty, 10);
 
-  db.run(
-    `
-    INSERT INTO inventory (product_id, location_id, lot, owner, qty)
-    VALUES (?, ?, ?, ?, ?)
-    `,
-    [product_id, location_id, lot || null, owner || null, qty],
-    function (err) {
+  if (qtyNum <= 0) {
+    return res.status(400).json({ error: "qty must be greater than 0" });
+  }
+
+  // Insert N rows (one per unit)
+  db.serialize(() => {
+    const stmt = db.prepare(
+      `INSERT INTO inventory (product_id, location_id, lot, owner)
+       VALUES (?, ?, ?, ?)`
+    );
+
+    let insertedCount = 0;
+
+    for (let i = 0; i < qtyNum; i++) {
+      stmt.run(
+        [product_id, location_id, lot || null, owner || null],
+        function (err) {
+          if (err) {
+            console.error("Failed to insert inventory:", err);
+          } else {
+            insertedCount++;
+          }
+        }
+      );
+    }
+
+    stmt.finalize((err) => {
       if (err) {
-        console.error("Failed to insert inventory:", err);
+        console.error("Failed to finalize insert:", err);
         return res.status(500).json({ error: err.message });
       }
-      res.json({ message: "Inventory added", id: this.lastID });
-    }
-  );
+
+      res.json({
+        message: "Inventory added",
+        qty_inserted: insertedCount,
+        product_id,
+        location_id,
+      });
+    });
+  });
 });
 
 /**
@@ -196,50 +221,66 @@ router.post("/move", (req, res) => {
         return res.status(400).json({ error: "Destination location does not exist" });
       }
 
-      // 2) Move all requested inventory rows
-      db.serialize(() => {
-        const stmt = db.prepare(
-          "UPDATE inventory SET location_id = ? WHERE id = ?"
-        );
+      // 2) Check if destination location already has items (enforce 1 item per location)
+      db.get(
+        "SELECT COUNT(*) as count FROM inventory WHERE location_id = ?",
+        [to_location_id],
+        (err2, result) => {
+          if (err2) {
+            console.error("Failed to check location inventory:", err2);
+            return res.status(500).json({ error: err2.message });
+          }
 
-        let movedCount = 0;
+          if (result.count > 0) {
+            return res.status(400).json({
+              error: `Location already contains ${result.count} item(s). Stacking is not allowed. Choose another location.`,
+            });
+          }
 
-        for (const invId of inventory_ids) {
-          stmt.run([to_location_id, invId], function (err2) {
-            if (err2) {
-              console.error("Failed to move inventory id", invId, err2);
-              // we do not early-return here, we log and continue
-            } else if (this.changes > 0) {
-              movedCount++;
+          // 3) Move all requested inventory rows
+          db.serialize(() => {
+            const stmt = db.prepare(
+              "UPDATE inventory SET location_id = ? WHERE id = ?"
+            );
+
+            let movedCount = 0;
+
+            for (const invId of inventory_ids) {
+              stmt.run([to_location_id, invId], function (err3) {
+                if (err3) {
+                  console.error("Failed to move inventory id", invId, err3);
+                } else if (this.changes > 0) {
+                  movedCount++;
+                }
+              });
             }
+
+            stmt.finalize((err4) => {
+              if (err4) {
+                console.error("Failed to finalize move statement:", err4);
+                return res.status(500).json({ error: "Failed to complete move" });
+              }
+
+              if (movedCount === 0) {
+                return res.status(404).json({ message: "No inventory records were moved" });
+              }
+
+              res.json({
+                message: "Inventory moved",
+                moved: movedCount,
+                to_location_id,
+              });
+            });
           });
         }
-
-        stmt.finalize((err3) => {
-          if (err3) {
-            console.error("Failed to finalize move statement:", err3);
-            return res.status(500).json({ error: "Failed to complete move" });
-          }
-
-          if (movedCount === 0) {
-            return res
-              .status(404)
-              .json({ message: "No inventory records were moved" });
-          }
-
-          res.json({
-            message: "Inventory moved",
-            moved: movedCount,
-            to_location_id
-          });
-        });
-      });
+      );
     }
   );
 });
 
 /**
  * ADD inventory to UNASSIGNED location (receiving intake)
+ * Creates N inventory rows for qty N
  * Body: { product_id, qty, owner, lot }
  */
 router.post("/unassigned", (req, res) => {
@@ -247,33 +288,53 @@ router.post("/unassigned", (req, res) => {
   const { product_id, qty, owner, lot } = req.body;
 
   if (!product_id || !qty) {
-    return res
-      .status(400)
-      .json({ error: "product_id and qty are required." });
+    return res.status(400).json({ error: "product_id and qty are required." });
+  }
+
+  const qtyNum = parseInt(qty, 10);
+
+  if (qtyNum <= 0) {
+    return res.status(400).json({ error: "qty must be greater than 0" });
   }
 
   const UNASSIGNED_ID = 9999;
 
-  db.run(
-    `
-    INSERT INTO inventory (product_id, location_id, lot, owner, qty)
-    VALUES (?, ?, ?, ?, ?)
-    `,
-    [product_id, UNASSIGNED_ID, lot || null, owner || "Keystone", qty],
-    function (err) {
+  // Insert N rows (one per unit)
+  db.serialize(() => {
+    const stmt = db.prepare(
+      `INSERT INTO inventory (product_id, location_id, lot, owner)
+       VALUES (?, ?, ?, ?)`
+    );
+
+    let insertedCount = 0;
+
+    for (let i = 0; i < qtyNum; i++) {
+      stmt.run(
+        [product_id, UNASSIGNED_ID, lot || null, owner || "Keystone"],
+        function (err) {
+          if (err) {
+            console.error("Failed to insert unassigned inventory:", err);
+          } else {
+            insertedCount++;
+          }
+        }
+      );
+    }
+
+    stmt.finalize((err) => {
       if (err) {
-        console.error("Failed to insert unassigned inventory:", err);
+        console.error("Failed to finalize unassigned insert:", err);
         return res.status(500).json({ error: err.message });
       }
 
       res.json({
         message: "Inventory added to UNASSIGNED",
-        id: this.lastID,
+        qty_inserted: insertedCount,
         product_id,
         location_id: UNASSIGNED_ID,
       });
-    }
-  );
+    });
+  });
 });
 
 /**
@@ -286,7 +347,6 @@ router.get("/unassigned", (req, res) => {
     SELECT 
       i.id,
       i.product_id,
-      i.qty,
       i.owner,
       i.location_id,
       p.brand,
@@ -307,8 +367,10 @@ router.get("/unassigned", (req, res) => {
   });
 });
 
-
-// Receive inventory into UNASSIGNED area
+/**
+ * Receive inventory into UNASSIGNED area (creates N rows for qty N)
+ * Body: { product_id, qty, owner, lot }
+ */
 router.post("/receive", (req, res) => {
   const db = req.app.locals.db;
   const { product_id, qty, owner, lot } = req.body;
@@ -317,74 +379,47 @@ router.post("/receive", (req, res) => {
     return res.status(400).json({ error: "Missing product_id or qty" });
   }
 
-  db.run(
-    `
-    INSERT INTO inventory (product_id, qty, owner, location_id, lot)
-    VALUES (?, ?, ?, 9999, ?)
-    `,
-    [product_id, qty, owner || "Keystone", lot || null],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
+  const qtyNum = parseInt(qty, 10);
 
-      res.json({ message: "Inventory received", id: this.lastID });
-    }
-  );
-});
-
-// Move selected inventory items to a new location
-router.post("/move", (req, res) => {
-  const db = req.app.locals.db;
-  const { ids, location_id } = req.body;
-
-  if (!ids || !Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ error: "ids must be a non-empty array" });
+  if (qtyNum <= 0) {
+    return res.status(400).json({ error: "qty must be greater than 0" });
   }
 
-  // RULE: A location may contain ONLY 1 inventory record.
-  db.get(
-    `
-    SELECT id, product_id 
-    FROM inventory
-    WHERE location_id = ?
-    LIMIT 1
-    `,
-    [location_id],
-    (err, row) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
+  // Insert N rows (one per unit)
+  db.serialize(() => {
+    const stmt = db.prepare(
+      `INSERT INTO inventory (product_id, location_id, lot, owner)
+       VALUES (?, ?, ?, ?)`
+    );
 
-      if (row) {
-        // Location already occupied — BLOCK MOVE
-        return res.status(400).json({
-          error: `Location already contains an item (inventory_id ${row.id}). 
-                  Stacking is not allowed. Choose another location.`
-        });
-      }
+    let insertedCount = 0;
 
-      // No item in this location — perform move
-      performMove();
+    for (let i = 0; i < qtyNum; i++) {
+      stmt.run(
+        [product_id, 9999, lot || null, owner || "Keystone"],
+        function (err) {
+          if (err) {
+            console.error("Failed to insert inventory:", err);
+          } else {
+            insertedCount++;
+          }
+        }
+      );
     }
-  );
 
-  function performMove() {
-    const placeholders = ids.map(() => "?").join(",");
-    const sql = `
-      UPDATE inventory
-      SET location_id = ?
-      WHERE id IN (${placeholders})
-    `;
-
-    db.run(sql, [location_id, ...ids], function (err) {
+    stmt.finalize((err) => {
       if (err) {
+        console.error("Failed to finalize receive:", err);
         return res.status(500).json({ error: err.message });
       }
 
-      res.json({ message: "Items moved successfully.", changes: this.changes });
+      res.json({
+        message: "Inventory received",
+        qty_inserted: insertedCount,
+        product_id,
+      });
     });
-  }
+  });
 });
-
-
 
 export default router;

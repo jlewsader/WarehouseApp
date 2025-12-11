@@ -3,6 +3,7 @@ const router = express.Router();
 
 /**
  * Search products with filters
+ * Now uses COUNT instead of SUM for on_hand quantity
  */
 router.get("/", (req, res) => {
   const db = req.app.locals.db;
@@ -12,7 +13,7 @@ router.get("/", (req, res) => {
   let sql = `
     SELECT 
       p.*,
-      COALESCE(SUM(i.qty), 0) AS on_hand
+      COALESCE(COUNT(i.id), 0) AS on_hand
     FROM products p
     LEFT JOIN inventory i ON p.id = i.product_id
     WHERE 1 = 1

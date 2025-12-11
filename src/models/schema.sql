@@ -23,7 +23,6 @@ CREATE TABLE IF NOT EXISTS inventory (
     product_id INTEGER,
     lot TEXT,
     owner TEXT,
-    qty INTEGER DEFAULT 1,
     FOREIGN KEY (location_id) REFERENCES locations(id),
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
