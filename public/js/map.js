@@ -2,6 +2,14 @@ const LEVELS = ["T", "M", "B"];
 let allLocations = [];
 let inventoryByLocation = new Map();
 
+function getLocationKey(locationId) {
+  return String(locationId ?? "");
+}
+
+function normalizeLabel(label) {
+  return String(label ?? "").trim().toUpperCase();
+}
+
 function parseLevel(label) {
   const match = label?.match(/-(T|M|B)$/);
   return match ? match[1] : "";
@@ -25,9 +33,18 @@ async function loadAllData() {
 
     inventoryByLocation = new Map();
     inventory.forEach((item) => {
-      const list = inventoryByLocation.get(item.location_id) || [];
-      list.push(item);
-      inventoryByLocation.set(item.location_id, list);
+      const idKey = getLocationKey(item.location_id);
+      const labelKey = normalizeLabel(item.location_label);
+
+      const idList = inventoryByLocation.get(idKey) || [];
+      idList.push(item);
+      inventoryByLocation.set(idKey, idList);
+
+      if (labelKey) {
+        const labelList = inventoryByLocation.get(labelKey) || [];
+        labelList.push(item);
+        inventoryByLocation.set(labelKey, labelList);
+      }
     });
 
     loadZone("Center");
@@ -51,6 +68,17 @@ function buildStacks(locations) {
   return stacks;
 }
 
+function getItemsForLocation(location) {
+  const locationKey = getLocationKey(location?.id);
+  const labelKey = normalizeLabel(location?.label);
+
+  return (
+    inventoryByLocation.get(locationKey) ||
+    inventoryByLocation.get(labelKey) ||
+    []
+  );
+}
+
 function createTier(levelLabel, location) {
   const tier = document.createElement("div");
   tier.className = "tier";
@@ -67,7 +95,9 @@ function createTier(levelLabel, location) {
     return tier;
   }
 
-  const occupied = inventoryByLocation.has(location.id);
+  const locationKey = getLocationKey(location.id);
+  const items = getItemsForLocation(location);
+  const occupied = items.length > 0;
   tier.classList.add(occupied ? "tier-occupied" : "tier-empty");
 
   tier.innerHTML = `
@@ -79,9 +109,9 @@ function createTier(levelLabel, location) {
   `;
 
   tier.addEventListener("click", () => {
-    const items = inventoryByLocation.get(location.id) || [];
-    const message = items.length
-      ? `Items in ${location.label}: ${items.length}`
+    const itemsInSlot = getItemsForLocation(location);
+    const message = itemsInSlot.length
+      ? `Items in ${location.label}: ${itemsInSlot.length}`
       : `No items in ${location.label}`;
     alert(message);
   });
@@ -121,8 +151,8 @@ function loadZone(zoneName) {
   const maxCol = Math.max(...zoneLocations.map((l) => l.col_index));
   const stacks = buildStacks(zoneLocations);
 
-  const table = document.createElement("table");
-  table.className = "map-table";
+  const zoneTable = document.createElement("table");
+  zoneTable.className = "map-table";
 
   const headerRow = document.createElement("tr");
   const corner = document.createElement("th");
@@ -135,7 +165,7 @@ function loadZone(zoneName) {
     th.textContent = `Col ${col}`;
     headerRow.appendChild(th);
   }
-  table.appendChild(headerRow);
+  zoneTable.appendChild(headerRow);
 
   for (let row = 1; row <= maxRow; row++) {
     const tr = document.createElement("tr");
@@ -158,13 +188,13 @@ function loadZone(zoneName) {
       tr.appendChild(td);
     }
 
-    table.appendChild(tr);
+    zoneTable.appendChild(tr);
   }
 
-  container.appendChild(table);
+  container.appendChild(zoneTable);
 
   const occupiedCount = zoneLocations.filter((loc) =>
-    inventoryByLocation.has(loc.id)
+    getItemsForLocation(loc).length > 0
   ).length;
   statusEl.textContent = `${zoneName} — ${zoneLocations.length} locations, ${occupiedCount} occupied`;
 }
