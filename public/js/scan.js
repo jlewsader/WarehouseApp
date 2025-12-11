@@ -248,7 +248,7 @@ function cancelNewProduct() {
 
 /*** SAVE PRODUCT ***/
 async function saveNewProduct(barcode) {
-  // Read dropdowns (allow 'Other' input fields)
+  // Read ALL form values BEFORE clearing the HTML (important!)
   const brandSel = document.getElementById("pBrandSelect");
   const brand = (brandSel.value === "__OTHER__") ? document.getElementById("pBrandOther").value.trim() : brandSel.value.trim();
 
@@ -306,9 +306,8 @@ async function saveNewProduct(barcode) {
     const lookupRes = await fetch(`/api/products/barcode/${encodeURIComponent(barcode)}`);
     if (lookupRes.ok) {
       const created = await lookupRes.json();
-      // Use the lot value currently in the form as parsed/prefill
-      const parsedLot = document.getElementById("pLot").value.trim();
-      renderProductFound(created, parsedLot);
+      // Use the lot value we captured earlier
+      renderProductFound(created, lot);
     } else {
       // fallback: show continue button
       box.innerHTML = `
