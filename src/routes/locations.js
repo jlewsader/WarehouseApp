@@ -7,7 +7,18 @@ const router = express.Router();
 router.get("/", (req, res) => {
   const db = req.app.locals.db;
   db.all(
-    "SELECT * FROM locations ORDER BY zone, row_index, col_index",
+    `
+  SELECT * FROM locations
+  ORDER BY 
+    zone,
+    row_index,
+    col_index,
+    CASE tier
+      WHEN 'T' THEN 1
+      WHEN 'M' THEN 2
+      WHEN 'B' THEN 3
+    END
+  `,
     [],
     (err, rows) => {
       if (err) {
@@ -45,30 +56,27 @@ router.get("/zone/:zone", (req, res) => {
 router.post("/", (req, res) => {
   const db = req.app.locals.db;
 
-  const { label, row_index, col_index, zone } = req.body;
+  const { label, row_index, col_index, tier, zone } = req.body;
 
-  if (!label || row_index == null || col_index == null) {
-    return res
-      .status(400)
-      .json({ error: "label, row_index, and col_index are required." });
+  if (!label || row_index == null || col_index == null || !tier) {
+    return res.status(400).json({
+      error: "label, row_index, col_index, and tier are required."
+    });
   }
 
   db.run(
     `
-      INSERT INTO locations (label, row_index, col_index, zone)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO locations (label, row_index, col_index, tier, zone)
+      VALUES (?, ?, ?, ?, ?)
     `,
-    [label, row_index, col_index, zone || null],
+    [label, row_index, col_index, tier, zone || null],
     function (err) {
       if (err) {
         console.error("Failed to insert location:", err);
         return res.status(500).json({ error: err.message });
       }
 
-      res.json({
-        message: "Location added",
-        id: this.lastID,
-      });
+      res.json({ message: "Location added", id: this.lastID });
     }
   );
 });
@@ -119,23 +127,23 @@ router.post("/generate-all", (req, res) => {
     }
 
     const stmt = db.prepare(`
-      INSERT INTO locations (label, row_index, col_index, zone)
-      VALUES (?, ?, ?, ?)
-    `);
+  INSERT INTO locations (label, row_index, col_index, tier, zone)
+  VALUES (?, ?, ?, ?, ?)
+`);
 
     let total = 0;
 
     for (const block of blocks) {
-      for (let r = 1; r <= block.rows; r++) {
-        for (let c = 1; c <= block.cols; c++) {
-          for (const lvl of levels) {
-            const label = `${block.prefix}-R${r}-C${c}-${lvl}`;
-            stmt.run([label, r, c, block.zone]);
-            total++;
-          }
-        }
+  for (let r = 1; r <= block.rows; r++) {
+    for (let c = 1; c <= block.cols; c++) {
+      for (const lvl of levels) {
+        const label = `${block.prefix}-R${r}-C${c}-${lvl}`;
+        stmt.run([label, r, c, lvl, block.zone]);
+        total++;
       }
     }
+  }
+}
 
     stmt.finalize((err2) => {
       if (err2) {
