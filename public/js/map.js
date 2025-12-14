@@ -100,11 +100,11 @@ function createTier(levelLabel, location) {
   tier.classList.add(occupied ? "tier-occupied" : "tier-empty");
 
   const primaryItem = occupied ? items[0] : null;
-  const primaryLabel = primaryItem
-    ? `${primaryItem.brand || ""}${
-        primaryItem.brand && primaryItem.product_code ? " " : ""
-      }${primaryItem.product_code || ""}`.trim() || "Inventory"
-    : "Empty";
+  const primaryLabel = !primaryItem
+  ? "Empty"
+  : [primaryItem.brand, primaryItem.product_code, primaryItem.lot]
+  .filter(Boolean)           // remove falsy values
+  .join(" ") || "Inventory";
   const statusText = occupied
     ? `${primaryLabel}${items.length > 1 ? ` (+${items.length - 1} more)` : ""}`
     : "Empty";
