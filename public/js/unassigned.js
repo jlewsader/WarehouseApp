@@ -117,9 +117,12 @@ function attachButtonListeners() {
 
   if (moveBtn) {
     moveBtn.onclick = () => {
-      if (selectedIds.size === 0) return;
-      localStorage.setItem("moveSelection", JSON.stringify([...selectedIds]));
-      window.location = "/move.html";
+if (selectedIds.size !== 1) {
+  alert("Select exactly ONE item to move.");
+  return;
+}
+      sessionStorage.setItem("moveSelection", JSON.stringify([...selectedIds]));
+      window.location.href = "/map.html";    
     };
   }
 

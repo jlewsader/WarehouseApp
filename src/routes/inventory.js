@@ -119,59 +119,38 @@ router.get("/product/:id", (req, res) => {
  * Accepts: { product_id, location_id, owner, qty, lot }
  */
 router.post("/", (req, res) => {
-  const { product_id, location_id, owner, qty, lot } = req.body;
+  const db = req.app.locals.db;
 
-  if (!product_id || !location_id || !qty) {
+  const { product_id, lot, owner } = req.body;
+
+  if (!product_id) {
     return res.status(400).json({
-      error: "product_id, location_id, and qty are required",
+      error: "product_id is required"
     });
   }
 
-  const db = req.app.locals.db;
-  const qtyNum = parseInt(qty, 10);
+  const location_id = 9999; // UNASSIGNED by default
 
-  if (qtyNum <= 0) {
-    return res.status(400).json({ error: "qty must be greater than 0" });
-  }
-
-  // Insert N rows (one per unit)
-  db.serialize(() => {
-    const stmt = db.prepare(
-      `INSERT INTO inventory (product_id, location_id, lot, owner)
-       VALUES (?, ?, ?, ?)`
-    );
-
-    let insertedCount = 0;
-
-    for (let i = 0; i < qtyNum; i++) {
-      stmt.run(
-        [product_id, location_id, lot || null, owner || null],
-        function (err) {
-          if (err) {
-            console.error("Failed to insert inventory:", err);
-          } else {
-            insertedCount++;
-          }
-        }
-      );
-    }
-
-    stmt.finalize((err) => {
+  db.run(
+    `
+    INSERT INTO inventory (product_id, lot, owner, location_id)
+    VALUES (?, ?, ?, ?)
+    `,
+    [product_id, lot || null, owner || null, location_id],
+    function (err) {
       if (err) {
-        console.error("Failed to finalize insert:", err);
+        console.error("Inventory insert failed:", err);
         return res.status(500).json({ error: err.message });
       }
 
       res.json({
         message: "Inventory added",
-        qty_inserted: insertedCount,
-        product_id,
-        location_id,
+        id: this.lastID,
+        location_id
       });
-    });
-  });
+    }
+  );
 });
-
 /**
  * DELETE inventory entry
  */
@@ -197,87 +176,59 @@ router.delete("/:id", (req, res) => {
  * MOVE inventory records to a new location
  * Body: { inventory_ids: [1,2,3], to_location_id: 123 }
  */
+// POST /api/inventory/move
 router.post("/move", (req, res) => {
   const db = req.app.locals.db;
-  const { inventory_ids, to_location_id } = req.body;
+  const { inventory_id, location_id } = req.body;
 
-  if (!Array.isArray(inventory_ids) || inventory_ids.length === 0) {
-    return res.status(400).json({ error: "inventory_ids must be a non-empty array" });
-  }
-  if (!to_location_id) {
-    return res.status(400).json({ error: "to_location_id is required" });
+  if (!inventory_id || !location_id) {
+    return res.status(400).json({
+      error: "inventory_id and location_id are required"
+    });
   }
 
-  // 1) Ensure destination location exists
+  // 1 Ensure target location is empty
   db.get(
-    "SELECT id FROM locations WHERE id = ?",
-    [to_location_id],
-    (err, location) => {
+    "SELECT id FROM inventory WHERE location_id = ?",
+    [location_id],
+    (err, existing) => {
       if (err) {
-        console.error("Failed to validate location:", err);
-        return res.status(500).json({ error: err.message });
-      }
-      if (!location) {
-        return res.status(400).json({ error: "Destination location does not exist" });
+        console.error(err);
+        return res.status(500).json({ error: "DB error" });
       }
 
-      // 2) Check if destination location already has items (enforce 1 item per location)
-      db.get(
-        "SELECT COUNT(*) as count FROM inventory WHERE location_id = ?",
-        [to_location_id],
-        (err2, result) => {
+      if (existing) {
+        return res.status(400).json({
+          error: "Location already occupied"
+        });
+      }
+
+      // 2 Move inventory item
+      db.run(
+        "UPDATE inventory SET location_id = ? WHERE id = ?",
+        [location_id, inventory_id],
+        function (err2) {
           if (err2) {
-            console.error("Failed to check location inventory:", err2);
-            return res.status(500).json({ error: err2.message });
+            console.error(err2);
+            return res.status(500).json({ error: "Move failed" });
           }
 
-          if (result.count > 0) {
-            return res.status(400).json({
-              error: `Location already contains ${result.count} item(s). Stacking is not allowed. Choose another location.`,
+          if (this.changes === 0) {
+            return res.status(404).json({
+              error: "Inventory item not found"
             });
           }
 
-          // 3) Move all requested inventory rows
-          db.serialize(() => {
-            const stmt = db.prepare(
-              "UPDATE inventory SET location_id = ? WHERE id = ?"
-            );
-
-            let movedCount = 0;
-
-            for (const invId of inventory_ids) {
-              stmt.run([to_location_id, invId], function (err3) {
-                if (err3) {
-                  console.error("Failed to move inventory id", invId, err3);
-                } else if (this.changes > 0) {
-                  movedCount++;
-                }
-              });
-            }
-
-            stmt.finalize((err4) => {
-              if (err4) {
-                console.error("Failed to finalize move statement:", err4);
-                return res.status(500).json({ error: "Failed to complete move" });
-              }
-
-              if (movedCount === 0) {
-                return res.status(404).json({ message: "No inventory records were moved" });
-              }
-
-              res.json({
-                message: "Inventory moved",
-                moved: movedCount,
-                to_location_id,
-              });
-            });
+          res.json({
+            message: "Inventory moved",
+            inventory_id,
+            location_id
           });
         }
       );
     }
   );
 });
-
 /**
  * ADD inventory to UNASSIGNED location (receiving intake)
  * Creates N inventory rows for qty N
@@ -303,7 +254,7 @@ router.post("/unassigned", (req, res) => {
   db.serialize(() => {
     const stmt = db.prepare(
       `INSERT INTO inventory (product_id, location_id, lot, owner)
-       VALUES (?, ?, ?, ?)`
+       VALUES (?, 9999, ?, ?)`
     );
 
     let insertedCount = 0;
@@ -389,7 +340,7 @@ router.post("/receive", (req, res) => {
   db.serialize(() => {
     const stmt = db.prepare(
       `INSERT INTO inventory (product_id, location_id, lot, owner)
-       VALUES (?, ?, ?, ?)`
+       VALUES (?, 9999, ?, ?)`
     );
 
     let insertedCount = 0;

@@ -13,100 +13,126 @@
 </header>
 
 <main>
-<div id="app">
-  <h1>Warehouse Map</h1>
+  <div id="app">
+    <h1>Warehouse Map</h1>
 
-  <div>
-    <button
-      v-for="zone in zones"
-      :key="zone"
-      @click="activeZone = zone"
-    >
-      {{ zone }}
-    </button>
-  </div>
-
-  <p>
-    Active zone: <strong>{{ activeZone }}</strong>
-  </p>
-
-  <p>
-    Locations in this zone: {{ zoneLocations.length }}
-  </p>
-
-<div class="warehouse">
-  <div
-    v-for="row in rows"
-    :key="row.row"
-    class="warehouse-row"
-  >
-    <div class="row-label">
-      Row {{ row.row }}
-    </div>
-
-    <div class="row-cells">
-      <div
-        v-for="cell in row.cells"
-        :key="`${cell.row}-${cell.col}`"
-        class="stack"
+    <div>
+      <button
+        v-for="zone in zones"
+        :key="zone"
+        @click="activeZone = zone"
       >
-<div
-  class="tier"
-  v-if="cell.tiers.T"
-  :class="{ occupied: isOccupied(cell.tiers.T.id) }"
->
-  <template v-if="inventoryAt(cell.tiers.T.id)">
-    <div class="product-code">
-      {{ inventoryAt(cell.tiers.T.id).product_code }}
+        {{ zone }}
+      </button>
     </div>
-    <div class="lot">
-      Lot {{ inventoryAt(cell.tiers.T.id).lot }}
-    </div>
-  </template>
-  <template v-else>
-    <div class="empty">Empty</div>
-  </template>
-</div>
-<div
-  class="tier"
-  v-if="cell.tiers.M"
-  :class="{ occupied: isOccupied(cell.tiers.M.id) }"
->
-  <template v-if="inventoryAt(cell.tiers.M.id)">
-    <div class="product-code">
-      {{ inventoryAt(cell.tiers.M.id).product_code }}
-    </div>
-    <div class="lot">
-      Lot {{ inventoryAt(cell.tiers.M.id).lot }}
-    </div>
-  </template>
-  <template v-else>
-    <div class="empty">Empty</div>
-  </template>
-</div>
-<div
-  class="tier"
-  v-if="cell.tiers.B"
-  :class="{ occupied: isOccupied(cell.tiers.B.id) }"
->
-  <template v-if="inventoryAt(cell.tiers.B.id)">
-    <div class="product-code">
-      {{ inventoryAt(cell.tiers.B.id).product_code }}
-    </div>
-    <div class="lot">
-      Lot {{ inventoryAt(cell.tiers.B.id).lot }}
-    </div>
-  </template>
-  <template v-else>
-    <div class="empty">Empty</div>
-  </template>
-</div>
+
+    <p>
+      Active zone: <strong>{{ activeZone }}</strong>
+    </p>
+
+    <p>
+      Locations in this zone: {{ zoneLocations.length }}
+    </p>
+
+    <div class="warehouse">
+      <div v-for="row in rows" :key="row.row" class="warehouse-row">
+        <div class="row-label">Row {{ row.row }}</div>
+
+        <div class="row-cells">
+          <div
+            v-for="cell in row.cells"
+            :key="`${cell.row}-${cell.col}`"
+            class="stack"
+          >
+            <!-- T -->
+            <div
+              class="tier"
+              v-if="cell.tiers.T"
+              :class="{
+                occupied: isOccupied(cell.tiers.T.id),
+                selected: selectedLocationId === cell.tiers.T.id
+              }"
+              @click="selectLocation(cell.tiers.T)"
+            >
+              <template v-if="inventoryAt(cell.tiers.T.id)">
+                <div class="product-code">
+                  {{ inventoryAt(cell.tiers.T.id).product_code }}
+                </div>
+                <div class="lot">
+                  Lot {{ inventoryAt(cell.tiers.T.id).lot }}
+                </div>
+              </template>
+              <template v-else>
+                <div class="empty">Empty</div>
+              </template>
+            </div>
+
+            <!-- M -->
+            <div
+              class="tier"
+              v-if="cell.tiers.M"
+              :class="{
+                occupied: isOccupied(cell.tiers.M.id),
+                selected: selectedLocationId === cell.tiers.M.id
+              }"
+              @click="selectLocation(cell.tiers.M)"
+            >
+              <template v-if="inventoryAt(cell.tiers.M.id)">
+                <div class="product-code">
+                  {{ inventoryAt(cell.tiers.M.id).product_code }}
+                </div>
+                <div class="lot">
+                  Lot {{ inventoryAt(cell.tiers.M.id).lot }}
+                </div>
+              </template>
+              <template v-else>
+                <div class="empty">Empty</div>
+              </template>
+            </div>
+
+            <!-- B -->
+            <div
+              class="tier"
+              v-if="cell.tiers.B"
+              :class="{
+                occupied: isOccupied(cell.tiers.B.id),
+                selected: selectedLocationId === cell.tiers.B.id
+              }"
+              @click="selectLocation(cell.tiers.B)"
+            >
+              <template v-if="inventoryAt(cell.tiers.B.id)">
+                <div class="product-code">
+                  {{ inventoryAt(cell.tiers.B.id).product_code }}
+                </div>
+                <div class="lot">
+                  Lot {{ inventoryAt(cell.tiers.B.id).lot }}
+                </div>
+              </template>
+              <template v-else>
+                <div class="empty">Empty</div>
+              </template>
+            </div>
+
+          </div>
+        </div>
       </div>
     </div>
+
+    <!-- Action Section (MUST be inside #app) -->
+    <div class="map-actions">
+      <button
+        :disabled="!selectedLocationId"
+        @click="confirmMove"
+      >
+        Move Here
+      </button>
+
+      <span v-if="selectedLocationId">
+        Selected Location ID: {{ selectedLocationId }}
+      </span>
+    </div>
+
   </div>
-</div>
-</div>
-</div>    
 </main>
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>  

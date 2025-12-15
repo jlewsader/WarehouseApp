@@ -73,10 +73,11 @@ async mounted() {
   this.locations = await locRes.json();
 
   const inventory = await invRes.json();
-  inventory.forEach(item => {
+inventory.forEach(item => {
+  if (item.location_id !== 9999) {
     this.inventoryByLocation[item.location_id] = item;
-  });
-},
+  }
+});},
 
 methods: {
   isOccupied(locationId) {
@@ -85,7 +86,67 @@ methods: {
 
   inventoryAt(locationId) {
     return this.inventoryByLocation[locationId] || null;
+  },
+
+  selectLocation(location) {
+      console.log("Tier clicked:", location);
+    if (this.isOccupied(location.id)) {
+      alert("This location is already occupied.");
+      return;
+    }
+    this.selectedLocationId = location.id;
+  },
+
+async confirmMove() {
+  if (!this.selectedLocationId) return;
+
+  const selectedIds = JSON.parse(
+    sessionStorage.getItem("moveSelection") || "[]"
+  );
+
+  if (selectedIds.length !== 1) {
+    alert("Select exactly ONE item to move.");
+    return;
   }
+
+  const inventoryId = selectedIds[0];
+
+  try {
+    const res = await fetch("/api/inventory/move", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        inventory_id: inventoryId,
+        location_id: this.selectedLocationId
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Move failed");
+      return;
+    }
+
+    alert("Move successful!");
+
+    this.selectedLocationId = null;
+    sessionStorage.removeItem("moveSelection");
+
+    // Refresh inventory map
+    const invRes = await fetch("/api/inventory");
+    const inventory = await invRes.json();
+    this.inventoryByLocation = {};
+    inventory.forEach(i => {
+      this.inventoryByLocation[i.location_id] = i;
+    });
+
+  } catch (err) {
+    console.error(err);
+    alert("Move failed");
+  }
+}
 }
 
 }).mount("#app");
+

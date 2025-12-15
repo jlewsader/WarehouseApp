@@ -43,7 +43,12 @@ body {
   flex-direction: column;
   justify-content: center;
   cursor: pointer;
+  pointer-events: auto;
   transition: background 0.15s ease;
+}
+
+.tier * {
+  pointer-events: none;
 }
 
 .product-code {
@@ -79,4 +84,10 @@ body {
 
 .tier:not(.occupied):hover {
   background: #b2e5b2;
+}
+
+.tier.selected {
+  outline: 3px solid #007bff;
+  background: #cce5ff !important;
+  color: black;
 }

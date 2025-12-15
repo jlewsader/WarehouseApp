@@ -28,11 +28,5 @@ CREATE TABLE IF NOT EXISTS inventory (
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
--- Seed a few test locations so the UI has data for development
-INSERT OR IGNORE INTO locations (label, row_index, col_index, tier, zone) VALUES
-    ('C-R1-C1-T', 1, 1, 'T', 'Center'),
-    ('C-R1-C1-M', 1, 1, 'M', 'Center'),
-    ('C-R1-C1-B', 1, 1, 'B', 'Center'),
-    ('E-R5-C1-T', 5, 1, 'T', 'East Wall'),
-    ('W-R2-C3-T', 2, 3, 'T', 'West Wall'),
-    ('C-R10-C4-M', 10, 4, 'M', 'Center');
+INSERT OR IGNORE INTO locations (id, label, row_index, col_index, tier, zone)
+VALUES (9999, 'UNASSIGNED', 0, 0, 'N/A', 'Receiving');
