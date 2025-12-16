@@ -261,8 +261,8 @@ router.post("/unassigned", (req, res) => {
 
     for (let i = 0; i < qtyNum; i++) {
       stmt.run(
-        [product_id, UNASSIGNED_ID, lot || null, owner || "Keystone"],
-        function (err) {
+          [product_id, lot || null, owner || "Keystone"],        
+          function (err) {
           if (err) {
             console.error("Failed to insert unassigned inventory:", err);
           } else {
@@ -347,8 +347,8 @@ router.post("/receive", (req, res) => {
 
     for (let i = 0; i < qtyNum; i++) {
       stmt.run(
-        [product_id, 9999, lot || null, owner || "Keystone"],
-        function (err) {
+        [product_id, lot || null, owner || "Keystone"],
+          function (err) {
           if (err) {
             console.error("Failed to insert inventory:", err);
           } else {
