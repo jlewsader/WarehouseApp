@@ -85,6 +85,28 @@
     </section>
 
     <section class="map-panel">
+
+            <div class="map-actions">
+        <div class="selection-summary">
+          <p>
+            <strong>Inbound item:</strong>
+            <span v-if="selectedInbound">ID {{ selectedInbound.id }} — {{ selectedInbound.brand }} {{ selectedInbound.product_code }}</span>
+            <span v-else class="muted">Select an inbound package to place.</span>
+          </p>
+          <p>
+            <strong>Destination:</strong>
+            <span v-if="selectedLocationId">Location {{ selectedLocationId }}</span>
+            <span v-else class="muted">Choose an empty tier on the map.</span>
+          </p>
+        </div>
+        <button
+          :disabled="!selectedInboundId || !selectedLocationId"
+          @click="confirmMove"
+        >
+          Move inbound here
+        </button>
+      </div>
+
       <div class="section-heading">
         <div>
           <p class="eyebrow">Map</p>
@@ -190,26 +212,6 @@
         </div>
       </div>
 
-      <div class="map-actions">
-        <div class="selection-summary">
-          <p>
-            <strong>Inbound item:</strong>
-            <span v-if="selectedInbound">ID {{ selectedInbound.id }} — {{ selectedInbound.brand }} {{ selectedInbound.product_code }}</span>
-            <span v-else class="muted">Select an inbound package to place.</span>
-          </p>
-          <p>
-            <strong>Destination:</strong>
-            <span v-if="selectedLocationId">Location {{ selectedLocationId }}</span>
-            <span v-else class="muted">Choose an empty tier on the map.</span>
-          </p>
-        </div>
-        <button
-          :disabled="!selectedInboundId || !selectedLocationId"
-          @click="confirmMove"
-        >
-          Move inbound here
-        </button>
-      </div>
     </section>
 
   </div>
