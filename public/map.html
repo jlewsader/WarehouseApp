@@ -166,14 +166,14 @@
             <div class="map-actions">
         <div class="selection-summary">
           <p>
-            <strong>Item to move: </strong>
-            <span v-if="selectedMoveSummary">{{ selectedMoveSummary }}</span>
-            <span v-else class="muted">Select inbound or click an occupied location.</span>
-          </p>
-          <p>
             <strong>Destination: </strong>
             <span v-if="selectedDestinationId">Location {{ selectedDestinationId }}</span>
             <span v-else class="muted">Choose an empty tier on the map.</span>
+          </p>
+          <p>
+            <strong>Item to move: </strong>
+            <span v-if="selectedMoveSummary">{{ selectedMoveSummary }}</span>
+            <span v-else class="muted">Select inbound or click an occupied location.</span>
           </p>
         </div>
         <button
