@@ -7,7 +7,7 @@ window.onload = () => {
   const data = localStorage.getItem("moveSelection");
   if (!data) {
     alert("No items selected for move.");
-    window.location.href = "/unassigned.html";
+    window.location.href = "/map.html#inbound";
     return;
   }
 
@@ -221,7 +221,7 @@ async function moveInventory() {
     if (successCount === selectedIds.length) {
       alert(`Successfully moved all ${successCount} item(s)!`);
       localStorage.removeItem("moveSelection");
-      window.location.href = "/unassigned.html";
+      window.location.href = "/map.html#inbound";
     } else {
       alert(`Moved ${successCount}/${selectedIds.length} items. Some failed - see console.`);
       moveBtn.disabled = false;
@@ -242,7 +242,7 @@ async function moveInventory() {
 function cancelMove() {
   if (confirm("Cancel move operation?")) {
     localStorage.removeItem("moveSelection");
-    window.location.href = "/unassigned.html";
+    window.location.href = "/map.html#inbound";
   }
 }
 

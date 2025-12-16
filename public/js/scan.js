@@ -359,7 +359,7 @@ async function receiveInventory(product_id) {
     box.innerHTML = `
       <p>Received ${qty} units of product!</p>
       <button onclick="continueReceiving()">Receive Next</button>
-      <button onclick="window.location='/unassigned.html'">View Unassigned</button>
+      <button onclick="window.location='/map.html#inbound'">View Inbound</button>
     `;
 
   } catch (err) {
