@@ -89,21 +89,21 @@
             <div class="map-actions">
         <div class="selection-summary">
           <p>
-            <strong>Inbound item:</strong>
-            <span v-if="selectedInbound">ID {{ selectedInbound.id }} — {{ selectedInbound.brand }} {{ selectedInbound.product_code }}</span>
-            <span v-else class="muted">Select an inbound package to place.</span>
+            <strong>Item to move: </strong>
+            <span v-if="selectedMoveSummary">{{ selectedMoveSummary }}</span>
+            <span v-else class="muted">Select inbound or click an occupied location.</span>
           </p>
           <p>
-            <strong>Destination:</strong>
-            <span v-if="selectedLocationId">Location {{ selectedLocationId }}</span>
+            <strong>Destination: </strong>
+            <span v-if="selectedDestinationId">Location {{ selectedDestinationId }}</span>
             <span v-else class="muted">Choose an empty tier on the map.</span>
           </p>
         </div>
         <button
-          :disabled="!selectedInboundId || !selectedLocationId"
+          :disabled="!selectedMoveInventoryId || !selectedDestinationId"
           @click="confirmMove"
         >
-          Move inbound here
+          Move item here
         </button>
       </div>
 

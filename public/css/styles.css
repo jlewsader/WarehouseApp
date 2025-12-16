@@ -309,7 +309,6 @@ body {
 .tier.occupied {
   background: #d9534f !important;
   color: white;
-  cursor: not-allowed;
 }
 
 .tier:not(.occupied):hover {
@@ -320,4 +319,10 @@ body {
   outline: 3px solid #007bff;
   background: #cce5ff !important;
   color: black;
+}
+
+.tier.source {
+  outline: 3px solid #6f42c1;
+  background: #e9d8fd !important;
+  color: #2d0a6a;
 }

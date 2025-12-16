@@ -9,9 +9,10 @@ createApp({
       inboundSort: "newest",
       zones: ["Center", "East Wall", "West Wall"],
       activeZone: "Center",
-      selectedLocationId: null,
-      selectedInboundId: null
-    };
+      selectedDestinationId: null,
+      selectedInboundId: null,
+      selectedSourceInventoryId: null,
+      selectedSourceLocationId: null    };
   },
 
   computed: {
@@ -99,6 +100,24 @@ createApp({
 
     selectedInbound() {
       return this.inbound.find(item => item.id === this.selectedInboundId) || null;
+    },
+
+    selectedMoveInventoryId() {
+      return this.selectedSourceInventoryId || this.selectedInboundId || null;
+    },
+
+    selectedMoveSummary() {
+      if (this.selectedSourceInventoryId && this.selectedSourceLocationId) {
+        const item = this.inventoryAt(this.selectedSourceLocationId);
+        if (!item) return "";
+        return `Inventory ID ${item.id} — ${item.brand} ${item.product_code}`;
+      }
+
+      if (this.selectedInbound) {
+        return `Inbound ID ${this.selectedInbound.id} — ${this.selectedInbound.brand} ${this.selectedInbound.product_code}`;
+      }
+
+      return "";
     }
   },
 
@@ -142,12 +161,30 @@ createApp({
     },
 
     selectLocation(location) {
-      if (this.isOccupied(location.id)) {
-        alert("This location is already occupied.");
+      const inventory = this.inventoryAt(location.id);
+
+      if (inventory) {
+        if (this.selectedSourceLocationId === location.id) {
+          this.selectedSourceLocationId = null;
+          this.selectedSourceInventoryId = null;
+        } else {
+          this.selectedSourceLocationId = location.id;
+          this.selectedSourceInventoryId = inventory.id;
+          this.selectedInboundId = null;
+        }
+
+        if (this.selectedDestinationId === location.id) {
+          this.selectedDestinationId = null;
+        }
+
         return;
       }
-      this.selectedLocationId = location.id;
-    },
+
+      if (this.selectedDestinationId === location.id) {
+        this.selectedDestinationId = null;        return;
+      }
+      this.selectedDestinationId = location.id;
+   },
 
     async refreshInventory() {
       const invRes = await fetch("/api/inventory");
@@ -170,16 +207,23 @@ createApp({
     },
 
     async confirmMove() {
-      if (!this.selectedInboundId || !this.selectedLocationId) return;
+      if (!this.selectedMoveInventoryId) {
+        alert("Select an inventory item to move.");
+        return;
+      }
+
+      if (!this.selectedDestinationId) {
+        alert("Choose an empty destination location.");
+        return;
+      }
 
       try {
         const res = await fetch("/api/inventory/move", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            inventory_id: this.selectedInboundId,
-            location_id: this.selectedLocationId
-          })
+            inventory_id: this.selectedMoveInventoryId,
+            location_id: this.selectedDestinationId          })
         });
 
         const data = await res.json();
@@ -191,13 +235,25 @@ createApp({
 
         alert("Move successful!");
 
-        this.selectedLocationId = null;
+        this.selectedDestinationId = null;
+        this.selectedSourceInventoryId = null;
+        this.selectedSourceLocationId = null;
+        
         await Promise.all([this.refreshInventory(), this.refreshInbound()]);
       } catch (err) {
         console.error(err);
         alert("Move failed");
       }
     }
-  }
+  },
 
+  watch: {
+    selectedInboundId(newVal) {
+      if (newVal) {
+        this.selectedSourceInventoryId = null;
+        this.selectedSourceLocationId = null;
+      }
+    }
+  }
+  
 }).mount("#app");
