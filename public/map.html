@@ -12,8 +12,85 @@
   <h1>Warehouse Map</h1>
 </header>
 
-<main>
-  <div id="app" class="map-layout">
+<main id="app">
+  <section class="search-panel">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Search</p>
+        <h2>Find inventory on the map</h2>
+      </div>
+    </div>
+
+    <div class="search-grid">
+      <label>
+        Brand
+        <input type="text" v-model="search.brand" placeholder="e.g. Keystone" />
+      </label>
+      <label>
+        Product
+        <input type="text" v-model="search.product" placeholder="Product code" />
+      </label>
+      <label>
+        Seed size
+        <input type="text" v-model="search.seed_size" placeholder="e.g. MF" />
+      </label>
+      <label>
+        Package
+        <input type="text" v-model="search.package_type" placeholder="e.g. SP50" />
+      </label>
+      <label>
+        Lot
+        <input type="text" v-model="search.lot" placeholder="Lot number" />
+      </label>
+    </div>
+
+    <div class="barcode-row">
+      <label class="barcode-field">
+        Barcode
+        <input
+          type="text"
+          v-model="search.barcode"
+          placeholder="Scan or type GTIN"
+          @keypress.enter.prevent="prefillFromBarcode"
+        />
+      </label>
+      <button @click="prefillFromBarcode">Parse barcode</button>
+    </div>
+
+    <div class="search-actions">
+      <div class="action-buttons">
+        <button @click="runSearch" :disabled="searching">{{ searching ? 'Searching…' : 'Search' }}</button>
+        <button type="button" class="ghost" @click="clearSearch" :disabled="searching">Clear</button>
+      </div>
+      <div class="search-messages">
+        <span class="muted" v-if="searchMessage">{{ searchMessage }}</span>
+        <span class="pill" v-if="searchResults.length">{{ searchResults.length }} match{{ searchResults.length === 1 ? '' : 'es' }}</span>
+      </div>
+    </div>
+
+    <div v-if="searchResults.length" class="search-results">
+      <article
+        v-for="result in searchResults"
+        :key="result.id"
+        class="result-card"
+        :class="{ 'unassigned': result.location_id === 9999 }"
+      >
+        <header>
+          <strong>{{ result.brand }} {{ result.product_code }}</strong>
+          <span class="pill" v-if="result.location_id === 9999">UNASSIGNED</span>
+        </header>
+        <p class="result-meta">
+          Lot: {{ result.lot || 'N/A' }} • Size: {{ result.seed_size || 'N/A' }} • Package: {{ result.package_type || 'N/A' }}
+        </p>
+        <p class="result-meta">
+          Location: {{ result.location_label }} ({{ result.zone }})
+          <span v-if="isSearchHit(result.location_id) && result.location_id !== 9999"> — highlighted on map</span>
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <div class="map-layout">
     <section class="inbound-panel" id="inbound">
       <div class="section-heading">
         <div>
@@ -144,7 +221,8 @@
                 v-if="cell.tiers.T"
                 :class="{
                   occupied: isOccupied(cell.tiers.T.id),
-                  selected: selectedLocationId === cell.tiers.T.id
+                  selected: selectedLocationId === cell.tiers.T.id,
+                  'search-hit': isSearchHit(cell.tiers.T.id)
                 }"
                 @click="selectLocation(cell.tiers.T)"
               >
@@ -167,7 +245,8 @@
                 v-if="cell.tiers.M"
                 :class="{
                   occupied: isOccupied(cell.tiers.M.id),
-                  selected: selectedLocationId === cell.tiers.M.id
+                  selected: selectedLocationId === cell.tiers.M.id,
+                  'search-hit': isSearchHit(cell.tiers.M.id)
                 }"
                 @click="selectLocation(cell.tiers.M)"
               >
@@ -190,7 +269,8 @@
                 v-if="cell.tiers.B"
                 :class="{
                   occupied: isOccupied(cell.tiers.B.id),
-                  selected: selectedLocationId === cell.tiers.B.id
+                  selected: selectedLocationId === cell.tiers.B.id,
+                  'search-hit': isSearchHit(cell.tiers.B.id)
                 }"
                 @click="selectLocation(cell.tiers.B)"
               >
@@ -217,7 +297,8 @@
   </div>
 </main>
 
-<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>  
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="/js/barcode-utils.js"></script>
 <script src="/js/map.js"></script>
 
 </body>

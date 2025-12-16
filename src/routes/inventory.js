@@ -38,6 +38,66 @@ router.get("/", (req, res) => {
 });
 
 /**
+ * Search inventory by product attributes and lot
+ */
+router.get("/search", (req, res) => {
+  const db = req.app.locals.db;
+  const { brand, product, size, package_type, lot } = req.query;
+
+  let sql = `
+    SELECT
+      i.id,
+      i.product_id,
+      p.brand,
+      p.product_code,
+      i.lot,
+      p.seed_size,
+      p.package_type,
+      i.location_id,
+      l.label AS location_label,
+      l.zone,
+      i.owner
+    FROM inventory i
+    JOIN products p ON p.id = i.product_id
+    JOIN locations l ON l.id = i.location_id
+    WHERE 1 = 1
+  `;
+
+  const params = [];
+
+  if (brand) {
+    sql += " AND p.brand LIKE ?";
+    params.push(`%${brand}%`);
+  }
+  if (product) {
+    sql += " AND p.product_code LIKE ?";
+    params.push(`%${product}%`);
+  }
+  if (size) {
+    sql += " AND p.seed_size = ?";
+    params.push(size);
+  }
+  if (package_type) {
+    sql += " AND p.package_type = ?";
+    params.push(package_type);
+  }
+  if (lot) {
+    sql += " AND i.lot LIKE ?";
+    params.push(`%${lot}%`);
+  }
+
+  sql += " ORDER BY l.zone, l.row_index, l.col_index";
+
+  db.all(sql, params, (err, rows) => {
+    if (err) {
+      console.error("Failed to search inventory:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows);
+  });
+});
+
+/**
  * GET inventory by location
  */
 router.get("/location/:id", (req, res) => {

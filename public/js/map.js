@@ -12,7 +12,21 @@ createApp({
       selectedDestinationId: null,
       selectedInboundId: null,
       selectedSourceInventoryId: null,
-      selectedSourceLocationId: null    };
+      selectedSourceLocationId: null,
+      selectedLocationId: null,
+      search: {
+        brand: "",
+        product: "",
+        seed_size: "",
+        package_type: "",
+        lot: "",
+        barcode: ""
+      },
+      searchResults: [],
+      highlightedLocationIds: [],
+      searchMessage: "Search by brand, product, seed size, package, or lot.",
+      searching: false
+    };
   },
 
   computed: {
@@ -118,6 +132,10 @@ createApp({
       }
 
       return "";
+    },
+
+    highlightedLocationSet() {
+      return new Set(this.highlightedLocationIds);
     }
   },
 
@@ -160,7 +178,12 @@ createApp({
       return this.inventoryByLocation[locationId] || null;
     },
 
+    isSearchHit(locationId) {
+      return this.highlightedLocationSet.has(locationId);
+    },
+
     selectLocation(location) {
+      this.selectedLocationId = location.id;
       const inventory = this.inventoryAt(location.id);
 
       if (inventory) {
@@ -181,10 +204,14 @@ createApp({
       }
 
       if (this.selectedDestinationId === location.id) {
-        this.selectedDestinationId = null;        return;
+        this.selectedDestinationId = null;
+        return;
       }
+
       this.selectedDestinationId = location.id;
-   },
+      this.selectedSourceInventoryId = null;
+      this.selectedSourceLocationId = null;
+    },
 
     async refreshInventory() {
       const invRes = await fetch("/api/inventory");
@@ -223,7 +250,8 @@ createApp({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             inventory_id: this.selectedMoveInventoryId,
-            location_id: this.selectedDestinationId          })
+            location_id: this.selectedDestinationId
+          })
         });
 
         const data = await res.json();
@@ -238,12 +266,124 @@ createApp({
         this.selectedDestinationId = null;
         this.selectedSourceInventoryId = null;
         this.selectedSourceLocationId = null;
-        
+
         await Promise.all([this.refreshInventory(), this.refreshInbound()]);
       } catch (err) {
         console.error(err);
         alert("Move failed");
       }
+    },
+
+    buildSearchParams() {
+      const params = new URLSearchParams();
+      const brand = (this.search.brand || "").trim();
+      const product = (this.search.product || "").trim();
+      const size = (this.search.seed_size || "").trim();
+      const pkg = (this.search.package_type || "").trim();
+      const lot = (this.search.lot || "").trim();
+
+      if (brand) params.append("brand", brand);
+      if (product) params.append("product", product);
+      if (size) params.append("size", size);
+      if (pkg) params.append("package_type", pkg);
+      if (lot) params.append("lot", lot);
+
+      return params;
+    },
+
+    async runSearch() {
+      const params = this.buildSearchParams();
+      if (!params.toString()) {
+        this.searchMessage = "Enter at least one filter or parse a barcode.";
+        this.searchResults = [];
+        this.highlightedLocationIds = [];
+        return;
+      }
+
+      this.searching = true;
+      try {
+        const res = await fetch(`/api/inventory/search?${params.toString()}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "Search failed");
+        }
+
+        this.searchResults = Array.isArray(data) ? data : [];
+        this.highlightedLocationIds = this.searchResults
+          .filter(r => r.location_id && r.location_id !== 9999)
+          .map(r => r.location_id);
+
+        this.searchMessage = this.searchResults.length
+          ? "Results highlighted on the map."
+          : "No inventory matched those filters.";
+      } catch (err) {
+        this.searchMessage = `Error: ${err.message}`;
+        this.searchResults = [];
+        this.highlightedLocationIds = [];
+      } finally {
+        this.searching = false;
+      }
+    },
+
+    async prefillFromBarcode() {
+      const raw = (this.search.barcode || "").trim();
+      if (!raw) {
+        this.searchMessage = "Enter a barcode to parse.";
+        return;
+      }
+
+      if (typeof parseGS1 !== "function") {
+        this.searchMessage = "Barcode parser unavailable.";
+        return;
+      }
+
+      const parsed = parseGS1(raw);
+      if (parsed.lot) {
+        this.search.lot = parsed.lot;
+      }
+
+      const lookupCode = parsed.gtin || raw;
+
+      try {
+        const res = await fetch(`/api/products/barcode/${encodeURIComponent(lookupCode)}`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          this.searchMessage = data.message === "NOT_FOUND"
+            ? "No product found for that barcode. Lot captured if present."
+            : (data.error || "Unable to look up barcode.");
+          await this.runSearch();
+          return;
+        }
+
+        const product = await res.json();
+        this.search.brand = product.brand || "";
+        this.search.product = product.product_code || "";
+        this.search.seed_size = product.seed_size || "";
+        this.search.package_type = product.package_type || "";
+        if (parsed.lot) {
+          this.search.lot = parsed.lot;
+        }
+
+        this.searchMessage = "Product details prefilled from barcode.";
+        await this.runSearch();
+      } catch (err) {
+        this.searchMessage = `Error reading barcode: ${err.message}`;
+      }
+    },
+
+    clearSearch() {
+      this.search = {
+        brand: "",
+        product: "",
+        seed_size: "",
+        package_type: "",
+        lot: "",
+        barcode: ""
+      };
+      this.searchResults = [];
+      this.highlightedLocationIds = [];
+      this.searchMessage = "";
     }
   },
 
@@ -255,5 +395,5 @@ createApp({
       }
     }
   }
-  
+
 }).mount("#app");
