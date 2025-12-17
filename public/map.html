@@ -263,11 +263,11 @@
               />
               <div class="row-body">
                 <div class="row-main">
-                  <strong>ID {{ item.id }}</strong>
+                  <strong>{{ group.product.brand }} {{ group.product.product_code }}</strong>
                   <span class="pill">{{ item.units_per_package || 1 }} units</span>
                 </div>
                 <div class="row-sub">
-                  Owner: {{ item.owner || 'N/A' }}
+                  Lot: {{ item.lot || group.product.lot || 'N/A' }} • Size: {{ item.seed_size || group.product.seed_size || 'N/A' }} • Package: {{ item.package_type || group.product.package_type || 'N/A' }} • Owner: {{ item.owner || 'N/A' }}
                 </div>
               </div>
             </label>
