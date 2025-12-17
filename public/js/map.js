@@ -291,19 +291,33 @@ createApp({
       const isEmpty = !this.isOccupied(location.id);
 
       if (!isEmpty) {
+        // If already selected as source, toggle off
+        if (this.selectedSourceLocationId === location.id) {
+          this.clearSelections();
+          return;
+        }
+
         // Select source from occupied tier
         this.selectedSourceLocationId = location.id;
         const inv = this.inventoryAt(location.id);
         this.selectedSourceInventoryId = inv ? inv.id : null;
         this.selectedInboundId = null;
         this.selectedLocationId = location.id;
+        // Clear prior destination highlight when choosing a new source
+        this.selectedDestinationId = null;
         return;
       }
 
-      // Destination tapped
+      // Tapping an empty destination
+      if (this.selectedDestinationId === location.id) {
+        // Toggle off destination
+        this.selectedDestinationId = null;
+        this.selectedLocationId = null;
+        return;
+      }
+
       if (this.selectedMoveInventoryId) {
         this.selectedDestinationId = location.id;
-        // Auto move on second tap
         this.confirmMove();
         return;
       }
@@ -311,6 +325,19 @@ createApp({
       // No source selected yet, just mark destination
       this.selectedDestinationId = location.id;
       this.selectedLocationId = location.id;
+    },
+
+    selectInboundItem(item) {
+      if (this.selectedInboundId === item.id) {
+        this.clearSelections();
+        return;
+      }
+
+      this.selectedInboundId = item.id;
+      this.selectedSourceInventoryId = item.id;
+      this.selectedSourceLocationId = null;
+      this.selectedDestinationId = null;
+      this.selectedLocationId = null;
     },
 
     async refreshInventory() {
