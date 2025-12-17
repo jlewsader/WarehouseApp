@@ -7,8 +7,7 @@ createApp({
       inventoryByLocation: {},
       inbound: [],
       inboundSort: "newest",
-      zones: ["Center", "East Wall", "West Wall"],
-      activeZone: "Center",
+      zones: ["East Wall", "Center", "West Wall"],
       selectedDestinationId: null,
       selectedInboundId: null,
       selectedSourceInventoryId: null,
@@ -25,7 +24,14 @@ createApp({
       searchResults: [],
       highlightedLocationIds: [],
       searchMessage: "Search by brand, product, seed size, package, or lot.",
-      searching: false
+      searching: false,
+      isDragging: false,
+      draggedItemId: null,
+      draggedItemType: null,
+      validDropZones: new Set(),
+      longPressTimer: null,
+      touchStartX: 0,
+      touchStartY: 0
     };
   },
 
@@ -33,7 +39,11 @@ createApp({
     rows() {
       const rows = {};
 
-      this.grid.forEach(cell => {
+      // Use the first zone's grid for backwards compatibility
+      const firstZone = this.zones[0];
+      const grid = this.gridByZone[firstZone] || [];
+
+      grid.forEach(cell => {
         if (!rows[cell.row]) rows[cell.row] = [];
         rows[cell.row].push(cell);
       });
@@ -50,31 +60,69 @@ createApp({
         }));
     },
 
-    zoneLocations() {
-      return this.locations.filter(loc => loc.zone === this.activeZone);
+    gridByZone() {
+      const result = {};
+
+      this.zones.forEach(zone => {
+        const zoneLocations = this.locations.filter(loc => loc.zone === zone);
+        const grid = {};
+
+        zoneLocations.forEach(loc => {
+          const key = `${loc.row_index}-${loc.col_index}`;
+
+          if (!grid[key]) {
+            grid[key] = {
+              row: loc.row_index,
+              col: loc.col_index,
+              tiers: {}
+            };
+          }
+
+          grid[key].tiers[loc.tier] = loc;
+        });
+
+        result[zone] = Object.values(grid).sort((a, b) => {
+          if (a.row !== b.row) return a.row - b.row;
+          return a.col - b.col;
+        });
+      });
+
+      return result;
     },
 
-    grid() {
-      const grid = {};
+    rowsByZone() {
+      const result = {};
 
-      this.zoneLocations.forEach(loc => {
-        const key = `${loc.row_index}-${loc.col_index}`;
+      this.zones.forEach(zone => {
+        const grid = this.gridByZone[zone];
+        const rows = {};
 
-        if (!grid[key]) {
-          grid[key] = {
-            row: loc.row_index,
-            col: loc.col_index,
-            tiers: {}
-          };
-        }
+        grid.forEach(cell => {
+          if (!rows[cell.row]) rows[cell.row] = [];
+          rows[cell.row].push(cell);
+        });
 
-        grid[key].tiers[loc.tier] = loc;
+        Object.values(rows).forEach(rowCells => {
+          rowCells.sort((a, b) => a.col - b.col);
+        });
+
+        result[zone] = Object.keys(rows)
+          .sort((a, b) => a - b)
+          .map(r => ({
+            row: r,
+            cells: rows[r]
+          }));
       });
 
-      return Object.values(grid).sort((a, b) => {
-        if (a.row !== b.row) return a.row - b.row;
-        return a.col - b.col;
+      return result;
+    },
+
+    zoneLocationCounts() {
+      const result = {};
+      this.zones.forEach(zone => {
+        result[zone] = this.locations.filter(loc => loc.zone === zone).length;
       });
+      return result;
     },
 
     inboundGroups() {
@@ -213,6 +261,32 @@ createApp({
       this.selectedSourceLocationId = null;
     },
 
+    onTierTap(location) {
+      const isEmpty = !this.isOccupied(location.id);
+
+      if (!isEmpty) {
+        // Select source from occupied tier
+        this.selectedSourceLocationId = location.id;
+        const inv = this.inventoryAt(location.id);
+        this.selectedSourceInventoryId = inv ? inv.id : null;
+        this.selectedInboundId = null;
+        this.selectedLocationId = location.id;
+        return;
+      }
+
+      // Destination tapped
+      if (this.selectedMoveInventoryId) {
+        this.selectedDestinationId = location.id;
+        // Auto move on second tap
+        this.confirmMove();
+        return;
+      }
+
+      // No source selected yet, just mark destination
+      this.selectedDestinationId = location.id;
+      this.selectedLocationId = location.id;
+    },
+
     async refreshInventory() {
       const invRes = await fetch("/api/inventory");
       const inventory = await invRes.json();
@@ -244,6 +318,10 @@ createApp({
         return;
       }
 
+      const summary = this.selectedMoveSummary || `Item ID ${this.selectedMoveInventoryId}`;
+      const proceed = window.confirm(`Confirm move:\n\n${summary}\n\n→ to Location ${this.selectedDestinationId}?`);
+      if (!proceed) return;
+
       try {
         const res = await fetch("/api/inventory/move", {
           method: "POST",
@@ -266,6 +344,8 @@ createApp({
         this.selectedDestinationId = null;
         this.selectedSourceInventoryId = null;
         this.selectedSourceLocationId = null;
+        this.selectedInboundId = null;
+        this.selectedLocationId = null;
 
         await Promise.all([this.refreshInventory(), this.refreshInbound()]);
       } catch (err) {
@@ -384,8 +464,139 @@ createApp({
       this.searchResults = [];
       this.highlightedLocationIds = [];
       this.searchMessage = "";
-    }
-  },
+    },
+
+    clearSelections() {
+      this.selectedDestinationId = null;
+      this.selectedSourceInventoryId = null;
+      this.selectedSourceLocationId = null;
+      this.selectedInboundId = null;
+      this.selectedLocationId = null;
+    },
+
+         // Drag and drop methods
+         startDragLocation(locationId, inventoryId) {
+           this.draggedItemId = locationId;
+           this.draggedItemType = "location";
+           this.isDragging = true;
+           this.selectedSourceLocationId = locationId;
+           this.selectedSourceInventoryId = inventoryId;
+           this.selectedInboundId = null;
+         },
+
+         startDragInbound(inboundId) {
+           this.draggedItemId = inboundId;
+           this.draggedItemType = "inbound";
+           this.isDragging = true;
+           this.selectedInboundId = inboundId;
+           this.selectedSourceInventoryId = inboundId;
+           this.selectedSourceLocationId = null;
+         },
+
+         endDrag() {
+           this.isDragging = false;
+           this.draggedItemId = null;
+           this.draggedItemType = null;
+           this.validDropZones.clear();
+         },
+
+         canDropHere(locationId) {
+           return !this.isOccupied(locationId);
+         },
+
+         dropAtLocation(locationId) {
+           if (!this.isDragging || !this.draggedItemId) {
+             this.endDrag();
+             return;
+           }
+
+           if (!this.canDropHere(locationId)) {
+             this.endDrag();
+             return;
+           }
+
+           this.selectedDestinationId = locationId;
+           this.endDrag();
+           this.confirmMove();
+         },
+
+         // Long-press detection for mobile
+         onTouchStart(event, locationId, inventoryId) {
+           this.touchStartX = event.touches[0].clientX;
+           this.touchStartY = event.touches[0].clientY;
+
+           this.longPressTimer = setTimeout(() => {
+             if (!this.isDragging) {
+               this.startDragLocation(locationId, inventoryId);
+             }
+           }, 500);
+         },
+
+         onTouchStartInbound(event, inboundId) {
+           this.touchStartX = event.touches[0].clientX;
+           this.touchStartY = event.touches[0].clientY;
+
+           this.longPressTimer = setTimeout(() => {
+             if (!this.isDragging) {
+               this.startDragInbound(inboundId);
+             }
+           }, 500);
+         },
+
+         onTouchMove(event) {
+           if (this.longPressTimer && !this.isDragging) {
+             const dx = Math.abs(event.touches[0].clientX - this.touchStartX);
+             const dy = Math.abs(event.touches[0].clientY - this.touchStartY);
+             if (dx > 10 || dy > 10) {
+               clearTimeout(this.longPressTimer);
+               this.longPressTimer = null;
+             }
+           }
+         },
+
+         onTouchEnd() {
+           clearTimeout(this.longPressTimer);
+           this.longPressTimer = null;
+         },
+
+         onTouchEndDrop(locationId) {
+           // If dragging after long-press, attempt drop
+           if (this.isDragging) {
+             this.dropAtLocation(locationId);
+           } else {
+             // No drag active; treat as normal touch end
+             this.onTouchEnd();
+           }
+         },
+
+         onDragStart(event, locationId, inventoryId) {
+           event.dataTransfer.effectAllowed = "move";
+           event.dataTransfer.setData("text/plain", JSON.stringify({
+             type: "location",
+             locationId,
+             inventoryId
+           }));
+           this.startDragLocation(locationId, inventoryId);
+         },
+
+         onDragStartInbound(event, inboundId) {
+           event.dataTransfer.effectAllowed = "move";
+           event.dataTransfer.setData("text/plain", JSON.stringify({
+             type: "inbound",
+             inboundId
+           }));
+           this.startDragInbound(inboundId);
+         },
+
+         onDragOver(event) {
+           event.preventDefault();
+           event.dataTransfer.dropEffect = "move";
+         },
+
+         onDragEnd() {
+           this.endDrag();
+         }
+    },
 
   watch: {
     selectedInboundId(newVal) {
