@@ -253,7 +253,7 @@
               :key="item.id"
               class="inbound-row"
               :class="{ selected: selectedInboundId === item.id }"
-              @click="selectedInboundId = item.id; selectedSourceInventoryId = item.id; selectedSourceLocationId = null;"
+              @click="selectInboundItem(item)"
             >
               <input
                 type="radio"
