@@ -172,23 +172,46 @@ body {
   border: 1px solid #cbd5e1;
 }
 
-.zone-switcher {
+/* Zones container for side-by-side layout */
+.zones-container {
   display: flex;
-  gap: 8px;
+  flex-direction: row;
+  gap: 20px;
+  overflow-x: auto;
+  padding: 0 0 12px 0;
+  margin: 0 -18px 0 -18px;
+  padding-left: 18px;
+  padding-right: 18px;
 }
 
-.zone-switcher button {
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  background: white;
-  cursor: pointer;
+.zone-section {
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
-.zone-switcher button.active {
-  background: #0ea5e9;
-  color: white;
-  border-color: #0ea5e9;
+.zone-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #0ea5e9;
+}
+
+.zone-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.zone-count {
+  font-size: 12px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 
 .section-subtitle {
@@ -304,10 +327,41 @@ body {
 
 .inbound-row:hover {
   border-color: #94a3b8;
+
+.inbound-row .row-body {
+  flex: 1;
+  cursor: grab;
+}
+
+.inbound-row .row-body:active {
+  cursor: grabbing;
+}
+
+.inbound-row .row-body.dragging {
+  opacity: 0.6;
+  background: rgba(167, 139, 250, 0.2);
+  border-radius: 4px;
+}
 }
 
 .map-actions {
   margin-top: 16px;
+
+  .selection-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: #374151;
+    flex: 1;
+  }
+
+  .selection-summary strong {
+    font-weight: 700;
+  }
+
+  .selection-summary .muted {
+    color: #9ca3af;
+  }
   padding: 12px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -331,6 +385,12 @@ body {
 .map-actions button:disabled {
   background: #cbd5e1;
   cursor: not-allowed;
+}
+
+.map-actions .ghost {
+  background: white;
+  color: #0ea5e9;
+  border: 1px solid #0ea5e9;
 }
 
 .selection-summary {
@@ -370,8 +430,9 @@ body {
 .stack {
   display: flex;
   flex-direction: column;
-  width: 200px;
+  width: 140px;
   border: 1px solid #999;
+  flex-shrink: 0;
 }
 
 .tier {
@@ -430,6 +491,27 @@ body {
   outline: 3px solid #007bff;
   background: #cce5ff !important;
   color: black;
+
+.tier.occupied {
+  cursor: grab;
+}
+
+.tier.occupied:active {
+  cursor: grabbing;
+}
+
+.tier.dragging {
+  opacity: 0.6;
+  background: #a78bfa !important;
+}
+
+.tier:not(.occupied) {
+  cursor: pointer;
+}
+
+.tier:not(.occupied):hover {
+  background: #c6f6d5 !important;
+}
 }
 
 .tier.search-hit {
@@ -441,4 +523,133 @@ body {
   outline: 3px solid #6f42c1;
   background: #e9d8fd !important;
   color: #2d0a6a;
+}
+
+.tier.destination {
+  outline: 3px solid #10b981;
+  background: #d1fae5 !important;
+  color: #064e3b;
+}
+
+/* Responsive design for tablets and mobile */
+@media (max-width: 1200px) {
+  .zones-container {
+    gap: 16px;
+  }
+
+  .zone-section {
+    min-width: auto;
+  }
+
+  .stack {
+    width: 130px;
+  }
+
+  .row-label {
+    width: 60px;
+    font-size: 12px;
+  }
+
+  .row-cells {
+    gap: 6px;
+  }
+
+  .product-code {
+    font-size: 10px;
+  }
+
+  .lot {
+    font-size: 8px;
+  }
+}
+
+@media (max-width: 960px) {
+  .map-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .zones-container {
+    flex-direction: row;
+    gap: 16px;
+    overflow-x: auto;
+  }
+
+  .zone-section {
+    flex: 0 0 auto;
+    min-width: auto;
+  }
+
+  .zone-header {
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+  }
+
+  .zone-title {
+    font-size: 15px;
+  }
+
+  .zone-count {
+    font-size: 11px;
+  }
+
+  .stack {
+    width: 120px;
+  }
+
+  .row-label {
+    width: 50px;
+    font-size: 11px;
+  }
+
+  .warehouse-row {
+    gap: 10px;
+  }
+
+  .row-cells {
+    gap: 5px;
+  }
+}
+
+@media (max-width: 768px) {
+  .zones-container {
+    flex-direction: column;
+    gap: 20px;
+    overflow-x: visible;
+    margin: 0;
+    padding: 0;
+  }
+
+  .zone-section {
+    min-width: 100%;
+  }
+
+  .zone-header {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+  }
+
+  .zone-title {
+    font-size: 16px;
+  }
+
+  .stack {
+    width: 130px;
+  }
+
+  .row-label {
+    width: 55px;
+    font-size: 12px;
+  }
+
+  .warehouse-row {
+    gap: 12px;
+  }
+
+  .row-cells {
+    gap: 8px;
+  }
+
+  .warehouse {
+    gap: 12px;
+  }
 }
