@@ -112,6 +112,120 @@
         <p>No inbound inventory waiting to be placed.</p>
       </div>
 
+      <div class="info-box" style="margin-bottom: 16px;">
+        <div class="barcode-row" style="margin-bottom: 8px;">
+          <label class="barcode-field" style="flex:1;">
+            Barcode (GTIN)
+            <input
+              type="text"
+              v-model="scan.barcode"
+              placeholder="Scan or type GTIN"
+              @keypress.enter.prevent="lookupInboundBarcode"
+            />
+          </label>
+          <div class="action-buttons">
+            <button @click="lookupInboundBarcode">Lookup</button>
+            <button type="button" class="ghost" @click="resetScanState()">Clear</button>
+          </div>
+        </div>
+
+        <div v-if="scan.view === 'message' || scan.view === 'idle'">
+          <p class="muted">{{ scan.message }}</p>
+        </div>
+
+        <div v-else-if="scan.view === 'product-found'" class="result-card" style="margin-top: 8px;">
+          <header>
+            <strong>{{ scan.product.brand }} {{ scan.product.product_code }}</strong>
+          </header>
+          <p class="result-meta">
+            Size: {{ scan.product.seed_size || 'N/A' }} • Package: {{ scan.product.package_type || 'N/A' }} • Units/Package: {{ scan.product.units_per_package || 1 }}
+          </p>
+          <label class="barcode-field" style="margin-top: 8px;">
+            Lot
+            <input type="text" v-model="scan.receivingLot" />
+          </label>
+          <label class="barcode-field" style="margin-top: 8px;">
+            Quantity Received
+            <input type="number" min="1" v-model.number="scan.receivingQty" />
+          </label>
+          <div class="action-buttons" style="margin-top: 10px;">
+            <button @click="receiveInventoryFromScan">Receive</button>
+            <button type="button" class="ghost" @click="resetScanState()">Cancel</button>
+          </div>
+        </div>
+
+        <div v-else-if="scan.view === 'new-product'" class="result-card" style="margin-top: 8px;">
+          <header>
+            <strong>New Product</strong>
+          </header>
+          <p class="result-meta">Barcode: {{ scan.newProduct.barcode }}</p>
+
+          <label class="barcode-field">
+            Brand
+            <select v-model="scan.newProduct.brand">
+              <option value="">-- Select Brand --</option>
+              <option v-for="b in scanOptions.brands" :key="b" :value="b">{{ b }}</option>
+              <option value="__OTHER__">Other...</option>
+            </select>
+            <input
+              v-if="scan.newProduct.brand === '__OTHER__'"
+              type="text"
+              v-model="scan.newProduct.brandOther"
+              placeholder="Type brand"
+              style="margin-top:6px;"
+            />
+          </label>
+
+          <label class="barcode-field">
+            Product Code / Description
+            <input type="text" v-model="scan.newProduct.product_code" />
+          </label>
+
+          <label class="barcode-field">
+            Lot
+            <input type="text" v-model="scan.newProduct.lot" />
+          </label>
+
+          <label class="barcode-field">
+            Seed Size
+            <select v-model="scan.newProduct.seed_size">
+              <option value="">-- Select Size --</option>
+              <option v-for="s in scanOptions.seedSizes" :key="s" :value="s">{{ s }}</option>
+              <option value="__OTHER__">Other...</option>
+            </select>
+            <input
+              v-if="scan.newProduct.seed_size === '__OTHER__'"
+              type="text"
+              v-model="scan.newProduct.seed_size_other"
+              placeholder="Type size"
+              style="margin-top:6px;"
+            />
+          </label>
+
+          <label class="barcode-field">
+            Package Type
+            <select v-model="scan.newProduct.package_type">
+              <option value="">-- Select Package --</option>
+              <option v-for="p in scanOptions.packageTypes" :key="p" :value="p">{{ p }}</option>
+              <option value="__OTHER__">Other...</option>
+            </select>
+            <input
+              v-if="scan.newProduct.package_type === '__OTHER__'"
+              type="text"
+              v-model="scan.newProduct.package_type_other"
+              placeholder="Type package"
+              style="margin-top:6px;"
+            />
+          </label>
+
+          <div class="action-buttons" style="margin-top: 10px;">
+            <button @click="saveNewProduct">Save Product</button>
+            <button type="button" class="ghost" @click="resetScanState()">Cancel</button>
+          </div>
+          <p class="muted" style="margin-top:6px;">Brand and product code are required.</p>
+        </div>
+      </div>
+
       <div v-else class="inbound-list">
         <article
           v-for="group in inboundGroups"
