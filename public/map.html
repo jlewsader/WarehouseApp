@@ -342,9 +342,9 @@
                       <div class="product-code">
                         {{ inventoryAt(cell.tiers.T.id).product_code }}
                       </div>
-                      <div class="lot">
-                        Lot {{ inventoryAt(cell.tiers.T.id).lot }}
-                      </div>
+                      <div class="item-line">Lot: {{ inventoryAt(cell.tiers.T.id).lot || 'N/A' }}</div>
+                      <div class="item-line">Size: {{ inventoryAt(cell.tiers.T.id).seed_size || 'N/A' }}</div>
+                      <div class="item-line">Pkg: {{ inventoryAt(cell.tiers.T.id).package_type || 'N/A' }}</div>
                     </template>
                     <template v-else>
                       <div class="empty">Empty</div>
@@ -368,9 +368,9 @@
                       <div class="product-code">
                         {{ inventoryAt(cell.tiers.M.id).product_code }}
                       </div>
-                      <div class="lot">
-                        Lot {{ inventoryAt(cell.tiers.M.id).lot }}
-                      </div>
+                      <div class="item-line">Lot: {{ inventoryAt(cell.tiers.M.id).lot || 'N/A' }}</div>
+                      <div class="item-line">Size: {{ inventoryAt(cell.tiers.M.id).seed_size || 'N/A' }}</div>
+                      <div class="item-line">Pkg: {{ inventoryAt(cell.tiers.M.id).package_type || 'N/A' }}</div>
                     </template>
                     <template v-else>
                       <div class="empty">Empty</div>
@@ -394,9 +394,9 @@
                       <div class="product-code">
                         {{ inventoryAt(cell.tiers.B.id).product_code }}
                       </div>
-                      <div class="lot">
-                        Lot {{ inventoryAt(cell.tiers.B.id).lot }}
-                      </div>
+                      <div class="item-line">Lot: {{ inventoryAt(cell.tiers.B.id).lot || 'N/A' }}</div>
+                      <div class="item-line">Size: {{ inventoryAt(cell.tiers.B.id).seed_size || 'N/A' }}</div>
+                      <div class="item-line">Pkg: {{ inventoryAt(cell.tiers.B.id).package_type || 'N/A' }}</div>
                     </template>
                     <template v-else>
                       <div class="empty">Empty</div>
