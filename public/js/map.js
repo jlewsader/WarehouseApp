@@ -31,7 +31,33 @@ createApp({
       validDropZones: new Set(),
       longPressTimer: null,
       touchStartX: 0,
-      touchStartY: 0
+      touchStartY: 0,
+      scan: {
+        barcode: "",
+        parsedLot: "",
+        view: "idle", // idle | product-found | new-product | message
+        message: "Enter or scan a barcode to begin.",
+        product: null,
+        receivingQty: 1,
+        receivingLot: "",
+        newProduct: {
+          barcode: "",
+          brand: "",
+          brandOther: "",
+          product_code: "",
+          lot: "",
+          seed_size: "",
+          seed_size_other: "",
+          package_type: "",
+          package_type_other: "",
+          units_per_package: 1
+        }
+      },
+      scanOptions: {
+        brands: ["Keystone", "Dekalb", "Croplan", "Brevant", "Asgrow", "Armor", "Agrigold", "NK", "Xitavo"],
+        seedSizes: ["MP", "MF", "MR", "LP", "AF", "AF2", "AR", "AR2", "CPR2", "CPF2", "CPR", "CPF", "CPP", "F1", "F2", "R1", "R2"],
+        packageTypes: ["SP50", "SP45", "SP40", "SP35", "SP30", "MB45", "MB40", "80M", "140M"]
+      }
     };
   },
 
@@ -472,6 +498,198 @@ createApp({
       this.selectedSourceLocationId = null;
       this.selectedInboundId = null;
       this.selectedLocationId = null;
+    },
+
+    // ----- Embedded scanning / receiving -----
+    resetScanState(message = "Enter or scan a barcode to begin.") {
+      this.scan = {
+        barcode: "",
+        parsedLot: "",
+        view: "idle",
+        message,
+        product: null,
+        receivingQty: 1,
+        receivingLot: "",
+        newProduct: {
+          barcode: "",
+          brand: "",
+          brandOther: "",
+          product_code: "",
+          lot: "",
+          seed_size: "",
+          seed_size_other: "",
+          package_type: "",
+          package_type_other: "",
+          units_per_package: 1
+        }
+      };
+    },
+
+    async lookupInboundBarcode() {
+      const raw = (this.scan.barcode || "").trim();
+      if (!raw) {
+        this.scan.message = "Enter or scan a barcode.";
+        return;
+      }
+
+      this.scan.view = "message";
+      this.scan.message = `Looking up ${raw}...`;
+
+      const parsed = typeof parseGS1 === "function" ? parseGS1(raw) : { gtin: raw };
+      const lookupCode = parsed.gtin || raw;
+
+      try {
+        const res = await fetch(`/api/products/barcode/${encodeURIComponent(lookupCode)}`);
+
+        if (res.status === 404) {
+          this.showNewProductForm(lookupCode, parsed.lot || "");
+          return;
+        }
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          this.scan.message = data.error || "Lookup failed.";
+          return;
+        }
+
+        const product = await res.json();
+        this.showProductFound(product, parsed.lot || "");
+      } catch (err) {
+        this.scan.view = "message";
+        this.scan.message = `Error: ${err.message}`;
+      }
+    },
+
+    showProductFound(product, parsedLot) {
+      this.scan.product = product;
+      this.scan.view = "product-found";
+      this.scan.receivingQty = 1;
+      this.scan.receivingLot = parsedLot || product.lot || "";
+      this.scan.message = "";
+    },
+
+    showNewProductForm(barcode, parsedLot) {
+      this.scan.view = "new-product";
+      this.scan.barcode = barcode;
+      this.scan.newProduct = {
+        barcode,
+        brand: "",
+        brandOther: "",
+        product_code: "",
+        lot: parsedLot || "",
+        seed_size: "",
+        seed_size_other: "",
+        package_type: "",
+        package_type_other: "",
+        units_per_package: 1
+      };
+      this.scan.message = "Product not found. Create it below.";
+    },
+
+    resolveSelectOrOther(value, other) {
+      if (value === "__OTHER__") return (other || "").trim();
+      return (value || "").trim();
+    },
+
+    computeUnitsFromPackage(pkgRaw) {
+      const pkg = (pkgRaw || "").toUpperCase();
+      const manualMap = { MB45: 45, MB40: 40, PB80: 1, "80M": 1, PB140: 1, "140M": 1 };
+      if (manualMap[pkg] !== undefined) return manualMap[pkg];
+      const match = pkg.match(/(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if ([50, 45, 40, 35, 30, 25, 20].includes(num)) return num;
+        if ([80, 140].includes(num)) return 1;
+      }
+      return 1;
+    },
+
+    async saveNewProduct() {
+      const np = this.scan.newProduct;
+      const brand = this.resolveSelectOrOther(np.brand, np.brandOther);
+      const seed_size = this.resolveSelectOrOther(np.seed_size, np.seed_size_other);
+      const package_type = this.resolveSelectOrOther(np.package_type, np.package_type_other);
+      const units_per_package = this.computeUnitsFromPackage(package_type || np.units_per_package);
+
+      if (!brand || !np.product_code) {
+        this.scan.message = "Brand and product code are required.";
+        return;
+      }
+
+      this.scan.view = "message";
+      this.scan.message = "Saving product...";
+
+      try {
+        const res = await fetch("/api/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            barcode: np.barcode,
+            brand,
+            product_code: np.product_code.trim(),
+            seed_size,
+            package_type,
+            units_per_package
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          this.scan.message = data.error || data.message || "Unable to save product.";
+          return;
+        }
+
+        // Re-lookup to show product-found view
+        await this.lookupInboundBarcode();
+      } catch (err) {
+        this.scan.message = `Error: ${err.message}`;
+      }
+    },
+
+    async receiveInventoryFromScan() {
+      if (!this.scan.product) {
+        this.scan.message = "No product selected.";
+        return;
+      }
+
+      const qty = parseInt(this.scan.receivingQty, 10);
+      if (!qty || qty <= 0) {
+        this.scan.message = "Quantity must be at least 1.";
+        return;
+      }
+
+      this.scan.view = "message";
+      this.scan.message = `Receiving ${qty} units...`;
+
+      try {
+        const res = await fetch("/api/inventory/receive", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            product_id: this.scan.product.id,
+            qty,
+            owner: "Keystone",
+            lot: this.scan.receivingLot || null
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          this.scan.message = data.error || data.message || "Receive failed.";
+          return;
+        }
+
+        this.scan.message = `Received ${qty} units. Ready for next.`;
+        this.scan.view = "idle";
+        this.scan.barcode = "";
+        this.scan.product = null;
+        this.scan.receivingQty = 1;
+        this.scan.receivingLot = "";
+
+        await Promise.all([this.refreshInbound(), this.refreshInventory()]);
+      } catch (err) {
+        this.scan.message = `Error: ${err.message}`;
+      }
     },
 
          // Drag and drop methods
