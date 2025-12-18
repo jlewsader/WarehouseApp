@@ -10,6 +10,8 @@ RUN dnf upgrade -y && dnf install -y \
     wget \
     nodejs npm \
     gcc gcc-c++ make \
+    sqlite \
+    sqlite-devel \
     && dnf clean all
 
 # Set HOME explicitly
