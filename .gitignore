@@ -24,3 +24,9 @@ build/
 
 # Containers
 .devcontainer/.cache/
+
+# Database
+*.db 
+*.sqlite
+*.sqlite3
+warehouse.db
