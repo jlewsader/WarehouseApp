@@ -1,9 +1,26 @@
-# Databases
-*.db
-
 # Node
 node_modules/
-.env
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
 
-# Github Copilot Instructions
-.github/copilot-instructions.md
+# Build output
+dist/
+build/
+.out/
+.next/
+
+# Env
+.env
+.env.*
+
+# VS Code
+.vscode/
+.vscode-server/
+.vscode-test/
+
+# OS
+.DS_Store
+
+# Containers
+.devcontainer/.cache/
