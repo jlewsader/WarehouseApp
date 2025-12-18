@@ -1,3 +1,4 @@
+import https from "https";
 import express from "express";
 import cors from "cors";
 import fs from "fs";
@@ -6,6 +7,13 @@ import { connectDB } from "./db.js";
 import productsRouter from "./routes/products.js";
 import inventoryRouter from "./routes/inventory.js";
 import locationsRouter from "./routes/locations.js";
+
+
+const options = {
+  key: fs.readFileSync("certs/localhost+3-key.pem"),
+  cert: fs.readFileSync("certs/localhost+3.pem"),
+};
+
 
 const app = express();
 app.use(cors());
@@ -29,6 +37,11 @@ app.get("/health", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const HOST = "0.0.0.0";
+
+https.createServer(options, app).listen(PORT, HOST, () => {
+  console.log(`HTTPS server running on https://${HOST}:${PORT}`);
+});
 
 const init = () => {
   const db = connectDB();
