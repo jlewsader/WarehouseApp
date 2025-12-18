@@ -661,3 +661,224 @@ body {
     gap: 12px;
   }
 }
+
+/* ===== Camera Scanner Styles ===== */
+
+/* Scanner modal overlay */
+.scanner-modal {
+  display: none; /* Hidden by default */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+}
+
+.scanner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+.scanner-container {
+  position: relative;
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.scanner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8f9fb;
+}
+
+.scanner-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.close-btn:hover {
+  background: #e5e7eb;
+}
+
+.scanner-video {
+  width: 100%;
+  min-height: 300px;
+  background: #000;
+  position: relative;
+}
+
+/* Override html5-qrcode default styles */
+#qr-reader {
+  border: none !important;
+}
+
+#qr-reader video {
+  width: 100% !important;
+  height: auto !important;
+  object-fit: cover;
+}
+
+#qr-reader__dashboard {
+  display: none !important;
+}
+
+.scanner-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+  background: #f8f9fb;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.scanner-buttons {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.scanner-status {
+  margin: 0;
+  font-size: 14px;
+  color: #374151;
+  text-align: center;
+  font-weight: 500;
+}
+
+.scanner-footer button {
+  padding: 10px 24px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #374151;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.scanner-footer button.secondary-btn {
+  background: #0ea5e9;
+  color: white;
+  border-color: #0ea5e9;
+}
+
+.scanner-footer button.secondary-btn:hover {
+  background: #0284c7;
+}
+
+.scanner-footer button:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* Camera button styling */
+.camera-btn {
+  white-space: nowrap;
+  min-width: fit-content;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .scanner-container {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .scanner-video {
+    min-height: 250px;
+  }
+
+  .barcode-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .barcode-row .action-buttons {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .barcode-row .action-buttons button {
+    flex: 1;
+  }
+
+  .camera-btn {
+    flex: 0 0 auto !important;
+    min-width: 80px;
+  }
+}
+
+/* iPhone and mobile device specific optimizations */
+@media (max-width: 480px) {
+  .scanner-header {
+    padding: 12px 16px;
+  }
+
+  .scanner-header h3 {
+    font-size: 16px;
+  }
+
+  .scanner-footer {
+    padding: 12px 16px;
+  }
+
+  .scanner-status {
+    font-size: 13px;
+  }
+}
+
+/* Improve button visibility on mobile */
+@media (hover: none) and (pointer: coarse) {
+  /* Touch device - make buttons bigger */
+  .barcode-row button,
+  .search-actions button,
+  .action-buttons button {
+    padding: 12px 16px;
+    font-size: 15px;
+    min-height: 44px; /* iOS recommended touch target size */
+  }
+
+  .camera-btn {
+    min-width: 90px;
+  }
+}

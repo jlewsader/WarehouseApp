@@ -55,6 +55,7 @@
         />
       </label>
       <button @click="prefillFromBarcode">Parse barcode</button>
+      <button @click="openCameraScanner('search')" class="camera-btn" title="Scan with camera">📷 Scan</button>
     </div>
 
     <div class="search-actions">
@@ -125,6 +126,7 @@
           </label>
           <div class="action-buttons">
             <button @click="lookupInboundBarcode">Lookup</button>
+            <button @click="openCameraScanner('inbound')" class="camera-btn" title="Scan with camera">📷</button>
             <button type="button" class="ghost" @click="resetScanState()">Clear</button>
           </div>
         </div>
@@ -415,8 +417,29 @@
   </div>
 </main>
 
+<!-- Camera Scanner Modal -->
+<div id="camera-scanner-modal" class="scanner-modal" style="display: none;">
+  <div class="scanner-overlay" onclick="closeCameraScanner()"></div>
+  <div class="scanner-container">
+    <div class="scanner-header">
+      <h3>Scan Barcode</h3>
+      <button onclick="closeCameraScanner()" class="close-btn" aria-label="Close scanner">✕</button>
+    </div>
+    <div id="qr-reader" class="scanner-video"></div>
+    <div class="scanner-footer">
+      <p id="scanner-status" class="scanner-status">Position barcode within frame</p>
+      <div class="scanner-buttons">
+        <button onclick="switchToFileUpload()" class="secondary-btn">📷 Take Photo Instead</button>
+        <button onclick="closeCameraScanner()" class="ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 <script src="/js/barcode-utils.js"></script>
+<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script src="/js/scanner.js"></script>
 <script src="/js/map.js"></script>
 
 </body>

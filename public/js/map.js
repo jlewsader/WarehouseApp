@@ -1,6 +1,6 @@
 const { createApp } = Vue;
 
-createApp({
+const app = createApp({
   data() {
     return {
       locations: [],
@@ -218,6 +218,15 @@ createApp({
   },
 
   methods: {
+    // Camera scanner integration
+    openCameraScanner(mode) {
+      if (typeof window.openCameraScanner === 'function') {
+        window.openCameraScanner(mode);
+      } else {
+        console.error('Camera scanner not available');
+      }
+    },
+
     async loadData() {
       const [locRes, invRes, inboundRes] = await Promise.all([
         fetch("/api/locations"),
@@ -852,4 +861,7 @@ createApp({
     }
   }
 
-}).mount("#app");
+});
+
+// Mount the app and expose it globally for the camera scanner
+window.vueApp = app.mount("#app");
