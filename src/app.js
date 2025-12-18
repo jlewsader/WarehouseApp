@@ -28,7 +28,7 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 3000;
 
 const init = () => {
   const db = connectDB();
@@ -65,7 +65,7 @@ const init = () => {
     app.use("/api/inventory", inventoryRouter);
     app.use("/api/locations", locationsRouter);
 
-    app.listen(PORT, () => {
+    app.listen(PORT, "0.0.0.0", () => {
       console.log(`Warehouse API running on port ${PORT}`);
     });
   });
