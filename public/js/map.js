@@ -41,6 +41,11 @@ const app = createApp({
       // Multi-move state
       multiMoveMode: false,
       multiMoveDestinations: [], // Array of {inventoryId, locationId} pairs
+      // Dispatch modal state (initialized to hidden)
+      dispatchModal: {
+        show: false,
+        notes: ""
+      },
       scan: {
         barcode: "",
         parsedLot: "",
@@ -1035,6 +1040,59 @@ const app = createApp({
            } catch (err) {
              console.error(err);
              alert("Unstaging failed");
+           }
+         },
+
+         // Dispatch methods
+         showDispatchModal() {
+           if (this.selectedInventoryIds.length === 0) {
+             alert("Please select items to dispatch.");
+             return;
+           }
+           this.dispatchModal.show = true;
+           this.dispatchModal.notes = "";
+         },
+
+         closeDispatchModal() {
+           this.dispatchModal.show = false;
+           this.dispatchModal.notes = "";
+         },
+
+         async confirmDispatch() {
+           if (this.selectedInventoryIds.length === 0) {
+             alert("No items selected.");
+             return;
+           }
+
+           const proceed = confirm(`Are you sure you want to dispatch ${this.selectedInventoryIds.length} item(s)? This will permanently remove them from inventory.`);
+           if (!proceed) return;
+
+           try {
+             const res = await fetch("/api/inventory/dispatch", {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({
+                 inventory_ids: this.selectedInventoryIds,
+                 notes: this.dispatchModal.notes.trim() || null
+               })
+             });
+
+             const data = await res.json();
+
+             if (!res.ok) {
+               alert(data.error || "Dispatch failed");
+               return;
+             }
+
+             alert(`Successfully dispatched ${data.dispatched_count} items`);
+             this.closeDispatchModal();
+             this.selectedInventoryIds = [];
+             this.multiSelectMode = false;
+
+             await Promise.all([this.refreshInventory(), this.refreshInbound()]);
+           } catch (err) {
+             console.error(err);
+             alert("Dispatch failed");
            }
          },
 

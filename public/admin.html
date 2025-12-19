@@ -300,6 +300,7 @@
       <div class="tab active" data-tab="dropdowns">Dropdown Options</div>
       <div class="tab" data-tab="bulk">Bulk Operations</div>
       <div class="tab" data-tab="products">Product Management</div>
+      <div class="tab" data-tab="outbound">Outbound Log</div>
     </div>
 
     <!-- Tab 1: Dropdown Options -->
@@ -349,6 +350,56 @@
         </tbody>
       </table>
       <div id="productsError" class="error-message"></div>
+    </div>
+
+    <!-- Tab 4: Outbound Log -->
+    <div id="outboundTab" class="tab-content">
+      <h2>Outbound Log</h2>
+      <p>View all dispatched items with date filtering and export capabilities.</p>
+      
+      <div style="margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-radius: 4px;">
+        <div style="display: flex; gap: 15px; align-items: end; flex-wrap: wrap;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="fromDate">From Date</label>
+            <input type="date" id="fromDate" class="form-control" style="width: auto;">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="toDate">To Date</label>
+            <input type="date" id="toDate" class="form-control" style="width: auto;">
+          </div>
+          <button id="filterOutboundBtn" class="btn btn-primary">Filter</button>
+          <button id="resetFilterBtn" class="btn btn-secondary">Reset to Last 30 Days</button>
+          <button id="exportCsvBtn" class="btn btn-secondary" style="margin-left: auto;">📊 Export CSV</button>
+        </div>
+      </div>
+
+      <div id="outboundStats" style="margin-bottom: 15px; color: #666;"></div>
+
+      <div style="overflow-x: auto;">
+        <table id="outboundTable">
+          <thead>
+            <tr>
+              <th>Dispatched</th>
+              <th>Brand</th>
+              <th>Product Code</th>
+              <th>Seed Size</th>
+              <th>Package</th>
+              <th>Lot</th>
+              <th>Owner</th>
+              <th>Location</th>
+              <th>Zone</th>
+              <th>Dispatched By</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="outboundTableBody">
+            <tr>
+              <td colspan="11" style="text-align: center; padding: 20px;">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="outboundError" class="error-message"></div>
     </div>
   </div>
 

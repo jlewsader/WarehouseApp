@@ -500,4 +500,139 @@ router.post("/unstage", (req, res) => {
   });
 });
 
+/**
+ * POST /api/inventory/dispatch
+ * Dispatch selected inventory items - logs to outbound_log and removes from inventory
+ */
+router.post("/dispatch", (req, res) => {
+  const db = req.app.locals.db;
+  const { inventory_ids, notes } = req.body;
+  const dispatched_by = req.session?.username || 'unknown';
+
+  if (!inventory_ids || !Array.isArray(inventory_ids) || inventory_ids.length === 0) {
+    return res.status(400).json({ error: "inventory_ids array is required" });
+  }
+
+  const placeholders = inventory_ids.map(() => "?").join(",");
+
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION", (err) => {
+      if (err) {
+        console.error("Failed to begin transaction:", err);
+        return res.status(500).json({ error: "Transaction failed to start" });
+      }
+
+      // First, fetch all inventory details that will be dispatched
+      const fetchSql = `
+        SELECT 
+          i.id as inventory_id,
+          i.product_id,
+          p.brand,
+          p.product_code,
+          p.seed_size,
+          p.package_type,
+          i.lot,
+          i.owner,
+          l.label as location_label,
+          l.zone
+        FROM inventory i
+        JOIN products p ON p.id = i.product_id
+        JOIN locations l ON l.id = i.location_id
+        WHERE i.id IN (${placeholders})
+      `;
+
+      db.all(fetchSql, inventory_ids, (err, rows) => {
+        if (err) {
+          console.error("Failed to fetch inventory for dispatch:", err);
+          return db.run("ROLLBACK", () => {
+            res.status(500).json({ error: "Failed to fetch inventory details" });
+          });
+        }
+
+        if (rows.length === 0) {
+          return db.run("ROLLBACK", () => {
+            res.status(404).json({ error: "No inventory items found" });
+          });
+        }
+
+        // Insert each item into outbound_log
+        const insertSql = `
+          INSERT INTO outbound_log (
+            inventory_id, product_id, brand, product_code, seed_size, 
+            package_type, lot, owner, location_label, zone, 
+            dispatched_by, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        let completed = 0;
+        let hasError = false;
+
+        rows.forEach((row) => {
+          if (hasError) return;
+
+          db.run(
+            insertSql,
+            [
+              row.inventory_id,
+              row.product_id,
+              row.brand,
+              row.product_code,
+              row.seed_size,
+              row.package_type,
+              row.lot,
+              row.owner,
+              row.location_label,
+              row.zone,
+              dispatched_by,
+              notes || null
+            ],
+            (err) => {
+              if (err) {
+                console.error("Failed to insert into outbound_log:", err);
+                hasError = true;
+                return db.run("ROLLBACK", () => {
+                  if (completed === 0) {
+                    res.status(500).json({ error: "Failed to log dispatch" });
+                  }
+                });
+              }
+
+              completed++;
+
+              // Once all inserts are complete, delete from inventory
+              if (completed === rows.length && !hasError) {
+                const deleteSql = `DELETE FROM inventory WHERE id IN (${placeholders})`;
+
+                db.run(deleteSql, inventory_ids, function (err) {
+                  if (err) {
+                    console.error("Failed to delete inventory:", err);
+                    return db.run("ROLLBACK", () => {
+                      res.status(500).json({ error: "Failed to remove inventory" });
+                    });
+                  }
+
+                  // Commit the transaction
+                  db.run("COMMIT", (err) => {
+                    if (err) {
+                      console.error("Failed to commit transaction:", err);
+                      return db.run("ROLLBACK", () => {
+                        res.status(500).json({ error: "Failed to commit dispatch" });
+                      });
+                    }
+
+                    res.json({
+                      message: "Items dispatched successfully",
+                      dispatched_count: rows.length
+                    });
+                  });
+                });
+              }
+            }
+          );
+        });
+      });
+    });
+  });
+});
+
 export default router;

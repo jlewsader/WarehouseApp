@@ -781,7 +781,7 @@ header h1 {
 
 /* Scanner modal overlay */
 .scanner-modal {
-  display: none; /* Hidden by default */
+  display: flex; /* Changed from none - Vue v-if handles visibility */
   position: fixed;
   top: 0;
   left: 0;
@@ -1129,6 +1129,17 @@ header h1 {
 .unstage-btn:hover {
   background: #059669;
   border-color: #059669;
+}
+
+.dispatch-btn {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: white;
+}
+
+.dispatch-btn:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
 }
 
 .multi-select-action-bar button.ghost {

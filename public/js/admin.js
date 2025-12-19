@@ -14,6 +14,7 @@ async function checkAuth() {
       loadStats();
       loadDropdownOptions();
       loadProducts();
+      loadOutboundLog();
     } else {
       showLoginForm();
     }
@@ -368,6 +369,132 @@ window.deleteProduct = async function(id) {
     errorDiv.style.display = 'block';
   }
 };
+
+// ===== Outbound Log Functions =====
+
+// Helper function to calculate date 30 days ago
+function getLast30DaysDate() {
+  const date = new Date();
+  date.setDate(date.getDate() - 30);
+  return date.toISOString().split('T')[0];
+}
+
+// Helper function to get today's date
+function getTodayDate() {
+  return new Date().toISOString().split('T')[0];
+}
+
+// Load outbound log with date filtering
+async function loadOutboundLog() {
+  const tbody = document.getElementById('outboundTableBody');
+  const errorDiv = document.getElementById('outboundError');
+  const statsDiv = document.getElementById('outboundStats');
+  
+  errorDiv.style.display = 'none';
+  tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+
+  // Set default dates if not already set
+  const fromDateInput = document.getElementById('fromDate');
+  const toDateInput = document.getElementById('toDate');
+  
+  if (!fromDateInput.value) {
+    fromDateInput.value = getLast30DaysDate();
+  }
+  if (!toDateInput.value) {
+    toDateInput.value = getTodayDate();
+  }
+
+  const fromDate = fromDateInput.value;
+  const toDate = toDateInput.value;
+
+  try {
+    const params = new URLSearchParams();
+    if (fromDate) params.append('from_date', fromDate);
+    if (toDate) params.append('to_date', toDate);
+
+    const response = await fetch(`/api/admin/outbound-log?${params.toString()}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch outbound log');
+    }
+    
+    const data = await response.json();
+    const logs = data.logs || [];
+
+    statsDiv.textContent = `Showing ${logs.length} dispatched item(s) from ${fromDate} to ${toDate}`;
+
+    if (logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px; color: #999;">No dispatched items found for this date range.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = logs.map(log => {
+      const dispatchDate = new Date(log.dispatched_at);
+      const formattedDate = dispatchDate.toLocaleString();
+
+      return `
+        <tr>
+          <td style="white-space: nowrap;">${formattedDate}</td>
+          <td>${log.brand || '-'}</td>
+          <td>${log.product_code || '-'}</td>
+          <td>${log.seed_size || '-'}</td>
+          <td>${log.package_type || '-'}</td>
+          <td>${log.lot || '-'}</td>
+          <td>${log.owner || '-'}</td>
+          <td>${log.location_label || '-'}</td>
+          <td>${log.zone || '-'}</td>
+          <td>${log.dispatched_by || '-'}</td>
+          <td style="max-width: 200px; white-space: normal;">${log.notes || '-'}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (error) {
+    console.error('Failed to load outbound log:', error);
+    errorDiv.textContent = 'Failed to load outbound log: ' + error.message;
+    errorDiv.style.display = 'block';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px; color: #f44336;">Error loading data</td></tr>';
+  }
+}
+
+// Export outbound log as CSV
+async function exportOutboundCSV() {
+  const fromDate = document.getElementById('fromDate').value;
+  const toDate = document.getElementById('toDate').value;
+
+  try {
+    const params = new URLSearchParams();
+    if (fromDate) params.append('from_date', fromDate);
+    if (toDate) params.append('to_date', toDate);
+
+    const response = await fetch(`/api/admin/outbound-log/export?${params.toString()}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to export CSV');
+    }
+    
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `outbound-log-${fromDate}-to-${toDate}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Failed to export CSV:', error);
+    alert('Failed to export CSV: ' + error.message);
+  }
+}
+
+// Event listeners for outbound log
+document.getElementById('filterOutboundBtn')?.addEventListener('click', loadOutboundLog);
+document.getElementById('resetFilterBtn')?.addEventListener('click', () => {
+  document.getElementById('fromDate').value = getLast30DaysDate();
+  document.getElementById('toDate').value = getTodayDate();
+  loadOutboundLog();
+});
+document.getElementById('exportCsvBtn')?.addEventListener('click', exportOutboundCSV);
 
 // Initialize on page load
 checkAuth();

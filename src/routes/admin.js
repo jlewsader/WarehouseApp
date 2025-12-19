@@ -198,5 +198,137 @@ export default function createAdminRoutes(db) {
     });
   });
 
+  // ===== OUTBOUND LOG =====
+
+  // Get outbound log with date filtering
+  router.get('/outbound-log', (req, res) => {
+    const { from_date, to_date } = req.query;
+    
+    let sql = `
+      SELECT 
+        id,
+        inventory_id,
+        product_id,
+        brand,
+        product_code,
+        seed_size,
+        package_type,
+        lot,
+        owner,
+        location_label,
+        zone,
+        dispatched_at,
+        dispatched_by,
+        notes
+      FROM outbound_log
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (from_date) {
+      sql += ' AND DATE(dispatched_at) >= DATE(?)';
+      params.push(from_date);
+    }
+
+    if (to_date) {
+      sql += ' AND DATE(dispatched_at) <= DATE(?)';
+      params.push(to_date);
+    }
+
+    sql += ' ORDER BY dispatched_at DESC';
+
+    db.all(sql, params, (err, rows) => {
+      if (err) {
+        console.error('Failed to fetch outbound log:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json({ logs: rows });
+    });
+  });
+
+  // Export outbound log as CSV
+  router.get('/outbound-log/export', (req, res) => {
+    const { from_date, to_date } = req.query;
+    
+    let sql = `
+      SELECT 
+        dispatched_at,
+        brand,
+        product_code,
+        seed_size,
+        package_type,
+        lot,
+        owner,
+        location_label,
+        zone,
+        dispatched_by,
+        notes
+      FROM outbound_log
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (from_date) {
+      sql += ' AND DATE(dispatched_at) >= DATE(?)';
+      params.push(from_date);
+    }
+
+    if (to_date) {
+      sql += ' AND DATE(dispatched_at) <= DATE(?)';
+      params.push(to_date);
+    }
+
+    sql += ' ORDER BY dispatched_at DESC';
+
+    db.all(sql, params, (err, rows) => {
+      if (err) {
+        console.error('Failed to fetch outbound log for export:', err);
+        return res.status(500).json({ error: err.message });
+      }
+
+      // Generate CSV
+      const headers = [
+        'Dispatched At',
+        'Brand',
+        'Product Code',
+        'Seed Size',
+        'Package Type',
+        'Lot',
+        'Owner',
+        'Location',
+        'Zone',
+        'Dispatched By',
+        'Notes'
+      ];
+
+      const csvRows = [headers.join(',')];
+
+      rows.forEach(row => {
+        const values = [
+          row.dispatched_at || '',
+          row.brand || '',
+          row.product_code || '',
+          row.seed_size || '',
+          row.package_type || '',
+          row.lot || '',
+          row.owner || '',
+          row.location_label || '',
+          row.zone || '',
+          row.dispatched_by || '',
+          (row.notes || '').replace(/"/g, '""') // Escape quotes in notes
+        ];
+        
+        // Wrap each value in quotes to handle commas in data
+        csvRows.push(values.map(v => `"${v}"`).join(','));
+      });
+
+      const csvContent = csvRows.join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=outbound-log-${from_date || 'all'}-to-${to_date || 'all'}.csv`);
+      res.send(csvContent);
+    });
+  });
+
   return router;
 }

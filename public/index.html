@@ -337,6 +337,7 @@
           <button @click="startMultiMove" class="move-btn">Move Selected</button>
           <button @click="stageSelectedItems" class="stage-btn">Stage for Customer</button>
           <button @click="unstageSelectedItems" class="unstage-btn">Unstage</button>
+          <button @click="showDispatchModal" class="dispatch-btn">📤 Dispatch</button>
           <button @click="clearMultiSelect" class="ghost">Cancel</button>
         </div>
       </div>
@@ -510,6 +511,33 @@
 
     </section>
 
+  </div>
+
+  <!-- Dispatch Modal (inside Vue app) -->
+  <div v-if="dispatchModal.show" class="scanner-modal">
+    <div class="scanner-overlay" @click="closeDispatchModal"></div>
+    <div class="scanner-container">
+      <div class="scanner-header">
+        <h3>Dispatch Items</h3>
+        <button @click="closeDispatchModal" class="close-btn" aria-label="Close">✕</button>
+      </div>
+      <div class="scanner-footer" style="padding: 20px;">
+        <p style="margin-bottom: 12px;">You are about to dispatch <strong>{{ selectedInventoryIds.length }}</strong> item(s). This will remove them from inventory and create a log entry.</p>
+        <label style="display: block; margin-bottom: 16px;">
+          <strong>Notes (optional)</strong>
+          <textarea 
+            v-model="dispatchModal.notes" 
+            placeholder="e.g., Sent to farm, Transferred to branch B, etc."
+            rows="3"
+            style="width: 100%; margin-top: 8px; padding: 8px; border: 1px solid #dfe3eb; border-radius: 6px; font-family: inherit; resize: vertical;"
+          ></textarea>
+        </label>
+        <div class="scanner-buttons">
+          <button @click="confirmDispatch" class="dispatch-btn" style="background: #dc2626; color: white;">Confirm Dispatch</button>
+          <button @click="closeDispatchModal" class="ghost">Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
 </main>
 
