@@ -214,6 +214,42 @@ const app = createApp({
 
     highlightedLocationSet() {
       return new Set(this.highlightedLocationIds);
+    },
+
+    uniqueCustomers() {
+      const customers = new Set();
+      Object.values(this.inventoryByLocation).forEach(item => {
+        if (item.staged && item.owner) {
+          customers.add(item.owner);
+        }
+      });
+      return Array.from(customers).sort();
+    },
+
+    filteredInventoryByLocation() {
+      if (!this.customerFilter) {
+        return this.inventoryByLocation;
+      }
+
+      const filtered = {};
+      Object.entries(this.inventoryByLocation).forEach(([locationId, item]) => {
+        if (this.customerFilter === '__STAGED__') {
+          // Show only staged items
+          if (item.staged) {
+            filtered[locationId] = item;
+          }
+        } else {
+          // Show items for specific customer
+          if (item.staged && item.owner === this.customerFilter) {
+            filtered[locationId] = item;
+          }
+        }
+      });
+      return filtered;
+    },
+
+    hasAnyStagedItems() {
+      return Object.values(this.inventoryByLocation).some(item => item.staged);
     }
   },
 
@@ -258,10 +294,16 @@ const app = createApp({
     },
 
     isOccupied(locationId) {
+      if (this.customerFilter) {
+        return !!this.filteredInventoryByLocation[locationId];
+      }
       return !!this.inventoryByLocation[locationId];
     },
 
     inventoryAt(locationId) {
+      if (this.customerFilter) {
+        return this.filteredInventoryByLocation[locationId] || null;
+      }
       return this.inventoryByLocation[locationId] || null;
     },
 

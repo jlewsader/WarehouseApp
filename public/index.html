@@ -319,14 +319,20 @@
         >
           {{ multiSelectMode ? '✓ Multi-Select Active' : 'Enable Multi-Select' }}
         </button>
-        <div v-if="customerFilter || Object.values(inventoryByLocation).some(i => i.staged)" class="filter-controls">
+        <div v-if="hasAnyStagedItems" class="filter-controls">
           <label class="customer-filter">
             Filter by Customer:
             <select v-model="customerFilter">
               <option value="">All Items</option>
-              <option value="__STAGED__">Staged Items Only</option>
+              <option value="__STAGED__">All Staged Items</option>
+              <option v-for="customer in uniqueCustomers" :key="customer" :value="customer">
+                {{ customer }}
+              </option>
             </select>
           </label>
+          <button v-if="customerFilter" @click="customerFilter = ''" class="clear-filter-btn">
+            Clear Filter
+          </button>
         </div>
       </div>
 
