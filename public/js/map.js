@@ -541,6 +541,7 @@ const app = createApp({
       this.scan = {
         barcode: "",
         parsedLot: "",
+        parsedGtin: "",
         view: "idle",
         message,
         product: null,
@@ -573,12 +574,16 @@ const app = createApp({
 
       const parsed = typeof parseGS1 === "function" ? parseGS1(raw) : { gtin: raw };
       const lookupCode = parsed.gtin || raw;
+      
+      // Store parsed values for later use
+      this.scan.parsedLot = parsed.lot || "";
+      this.scan.parsedGtin = lookupCode;
 
       try {
         const res = await fetch(`/api/products/barcode/${encodeURIComponent(lookupCode)}`);
 
         if (res.status === 404) {
-          this.showNewProductForm(lookupCode, parsed.lot || "");
+          this.showNewProductForm(lookupCode, this.scan.parsedLot);
           return;
         }
 
@@ -589,7 +594,7 @@ const app = createApp({
         }
 
         const product = await res.json();
-        this.showProductFound(product, parsed.lot || "");
+        this.showProductFound(product, this.scan.parsedLot);
       } catch (err) {
         this.scan.view = "message";
         this.scan.message = `Error: ${err.message}`;
@@ -675,8 +680,8 @@ const app = createApp({
           return;
         }
 
-        // Re-lookup to show product-found view
-        await this.lookupInboundBarcode();
+        // Show product-found view directly with the saved product and parsed lot
+        this.showProductFound(data, this.scan.parsedLot);
       } catch (err) {
         this.scan.message = `Error: ${err.message}`;
       }
