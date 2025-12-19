@@ -310,6 +310,38 @@
         </div>
       </div>
 
+      <!-- Multi-Select Mode Controls -->
+      <div class="mode-controls">
+        <button 
+          :class="{ active: multiSelectMode }" 
+          @click="toggleMultiSelectMode"
+          class="mode-btn"
+        >
+          {{ multiSelectMode ? '✓ Multi-Select Active' : 'Enable Multi-Select' }}
+        </button>
+        <div v-if="customerFilter || Object.values(inventoryByLocation).some(i => i.staged)" class="filter-controls">
+          <label class="customer-filter">
+            Filter by Customer:
+            <select v-model="customerFilter">
+              <option value="">All Items</option>
+              <option value="__STAGED__">Staged Items Only</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <!-- Floating Action Bar for Multi-Select -->
+      <div v-if="multiSelectMode && selectedInventoryIds.length > 0" class="multi-select-action-bar">
+        <div class="selection-info">
+          <strong>{{ selectedInventoryIds.length }}</strong> items selected
+        </div>
+        <div class="action-buttons">
+          <button @click="stageSelectedItems" class="stage-btn">Stage for Customer</button>
+          <button @click="unstageSelectedItems" class="unstage-btn">Unstage</button>
+          <button @click="clearMultiSelect" class="ghost">Cancel</button>
+        </div>
+      </div>
+
       <div class="zones-container" aria-label="Warehouse zones">
         <div v-for="zone in zones" :key="zone" class="zone-section">
           <div class="zone-header">
@@ -336,11 +368,23 @@
                       selected: selectedLocationId === cell.tiers.T.id,
                       destination: selectedDestinationId === cell.tiers.T.id,
                       source: selectedSourceLocationId === cell.tiers.T.id,
-                      'search-hit': isSearchHit(cell.tiers.T.id)
+                      'search-hit': isSearchHit(cell.tiers.T.id),
+                      staged: inventoryAt(cell.tiers.T.id) && inventoryAt(cell.tiers.T.id).staged,
+                      checked: inventoryAt(cell.tiers.T.id) && isInventorySelected(inventoryAt(cell.tiers.T.id).id)
                     }"
                     @click="onTierTap(cell.tiers.T)"
                   >
+                    <input
+                      v-if="multiSelectMode && inventoryAt(cell.tiers.T.id)"
+                      type="checkbox"
+                      :checked="isInventorySelected(inventoryAt(cell.tiers.T.id).id)"
+                      @click.stop="toggleInventorySelection(inventoryAt(cell.tiers.T.id).id)"
+                      class="tier-checkbox"
+                    />
                     <template v-if="inventoryAt(cell.tiers.T.id)">
+                      <div v-if="inventoryAt(cell.tiers.T.id).staged" class="customer-badge">
+                        {{ inventoryAt(cell.tiers.T.id).owner }}
+                      </div>
                       <div class="product-code">
                         {{ inventoryAt(cell.tiers.T.id).product_code }}
                       </div>
@@ -362,11 +406,23 @@
                       selected: selectedLocationId === cell.tiers.M.id,
                       destination: selectedDestinationId === cell.tiers.M.id,
                       source: selectedSourceLocationId === cell.tiers.M.id,
-                      'search-hit': isSearchHit(cell.tiers.M.id)
+                      'search-hit': isSearchHit(cell.tiers.M.id),
+                      staged: inventoryAt(cell.tiers.M.id) && inventoryAt(cell.tiers.M.id).staged,
+                      checked: inventoryAt(cell.tiers.M.id) && isInventorySelected(inventoryAt(cell.tiers.M.id).id)
                     }"
                     @click="onTierTap(cell.tiers.M)"
                   >
+                    <input
+                      v-if="multiSelectMode && inventoryAt(cell.tiers.M.id)"
+                      type="checkbox"
+                      :checked="isInventorySelected(inventoryAt(cell.tiers.M.id).id)"
+                      @click.stop="toggleInventorySelection(inventoryAt(cell.tiers.M.id).id)"
+                      class="tier-checkbox"
+                    />
                     <template v-if="inventoryAt(cell.tiers.M.id)">
+                      <div v-if="inventoryAt(cell.tiers.M.id).staged" class="customer-badge">
+                        {{ inventoryAt(cell.tiers.M.id).owner }}
+                      </div>
                       <div class="product-code">
                         {{ inventoryAt(cell.tiers.M.id).product_code }}
                       </div>
@@ -388,11 +444,23 @@
                       selected: selectedLocationId === cell.tiers.B.id,
                       destination: selectedDestinationId === cell.tiers.B.id,
                       source: selectedSourceLocationId === cell.tiers.B.id,
-                      'search-hit': isSearchHit(cell.tiers.B.id)
+                      'search-hit': isSearchHit(cell.tiers.B.id),
+                      staged: inventoryAt(cell.tiers.B.id) && inventoryAt(cell.tiers.B.id).staged,
+                      checked: inventoryAt(cell.tiers.B.id) && isInventorySelected(inventoryAt(cell.tiers.B.id).id)
                     }"
                     @click="onTierTap(cell.tiers.B)"
                   >
+                    <input
+                      v-if="multiSelectMode && inventoryAt(cell.tiers.B.id)"
+                      type="checkbox"
+                      :checked="isInventorySelected(inventoryAt(cell.tiers.B.id).id)"
+                      @click.stop="toggleInventorySelection(inventoryAt(cell.tiers.B.id).id)"
+                      class="tier-checkbox"
+                    />
                     <template v-if="inventoryAt(cell.tiers.B.id)">
+                      <div v-if="inventoryAt(cell.tiers.B.id).staged" class="customer-badge">
+                        {{ inventoryAt(cell.tiers.B.id).owner }}
+                      </div>
                       <div class="product-code">
                         {{ inventoryAt(cell.tiers.B.id).product_code }}
                       </div>

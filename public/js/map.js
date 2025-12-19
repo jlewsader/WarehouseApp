@@ -32,6 +32,10 @@ const app = createApp({
       longPressTimer: null,
       touchStartX: 0,
       touchStartY: 0,
+      // Multi-select and staging state
+      multiSelectMode: false,
+      selectedInventoryIds: [],
+      customerFilter: "",
       scan: {
         barcode: "",
         parsedLot: "",
@@ -298,6 +302,15 @@ const app = createApp({
 
     onTierTap(location) {
       const isEmpty = !this.isOccupied(location.id);
+
+      // Multi-select mode: toggle selection on occupied tiers
+      if (this.multiSelectMode && !isEmpty) {
+        const inv = this.inventoryAt(location.id);
+        if (inv) {
+          this.toggleInventorySelection(inv.id);
+        }
+        return;
+      }
 
       if (!isEmpty) {
         // If already selected as source, toggle off
@@ -854,6 +867,107 @@ const app = createApp({
 
          onDragEnd() {
            this.endDrag();
+         },
+
+         // Multi-select and staging methods
+         toggleMultiSelectMode() {
+           this.multiSelectMode = !this.multiSelectMode;
+           if (!this.multiSelectMode) {
+             this.selectedInventoryIds = [];
+           }
+           this.clearSelections();
+         },
+
+         toggleInventorySelection(inventoryId) {
+           const index = this.selectedInventoryIds.indexOf(inventoryId);
+           if (index > -1) {
+             this.selectedInventoryIds.splice(index, 1);
+           } else {
+             this.selectedInventoryIds.push(inventoryId);
+           }
+         },
+
+         isInventorySelected(inventoryId) {
+           return this.selectedInventoryIds.includes(inventoryId);
+         },
+
+         clearMultiSelect() {
+           this.selectedInventoryIds = [];
+           this.multiSelectMode = false;
+         },
+
+         async stageSelectedItems() {
+           if (this.selectedInventoryIds.length === 0) {
+             alert("Please select items to stage.");
+             return;
+           }
+
+           const customer = prompt("Enter customer name:");
+           if (!customer || customer.trim() === "") {
+             return;
+           }
+
+           try {
+             const res = await fetch("/api/inventory/stage", {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({
+                 inventory_ids: this.selectedInventoryIds,
+                 customer: customer.trim()
+               })
+             });
+
+             const data = await res.json();
+
+             if (!res.ok) {
+               alert(data.error || "Staging failed");
+               return;
+             }
+
+             alert(`Successfully staged ${data.staged_count} items for ${data.customer}`);
+             this.selectedInventoryIds = [];
+             this.multiSelectMode = false;
+
+             await Promise.all([this.refreshInventory(), this.refreshInbound()]);
+           } catch (err) {
+             console.error(err);
+             alert("Staging failed");
+           }
+         },
+
+         async unstageSelectedItems() {
+           if (this.selectedInventoryIds.length === 0) {
+             alert("Please select items to unstage.");
+             return;
+           }
+
+           const proceed = confirm(`Unstage ${this.selectedInventoryIds.length} items?`);
+           if (!proceed) return;
+
+           try {
+             const res = await fetch("/api/inventory/unstage", {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({
+                 inventory_ids: this.selectedInventoryIds
+               })
+             });
+
+             const data = await res.json();
+
+             if (!res.ok) {
+               alert(data.error || "Unstaging failed");
+               return;
+             }
+
+             alert(`Successfully unstaged ${data.unstaged_count} items`);
+             this.selectedInventoryIds = [];
+
+             await Promise.all([this.refreshInventory(), this.refreshInbound()]);
+           } catch (err) {
+             console.error(err);
+             alert("Unstaging failed");
+           }
          }
     },
 
