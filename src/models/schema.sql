@@ -29,5 +29,21 @@ CREATE TABLE IF NOT EXISTS inventory (
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
+CREATE TABLE IF NOT EXISTS dropdown_options (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,
+    value TEXT NOT NULL,
+    display_order INTEGER DEFAULT 0,
+    UNIQUE(category, value)
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'user',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 INSERT OR IGNORE INTO locations (id, label, row_index, col_index, tier, zone)
 VALUES (9999, 'UNASSIGNED', 0, 0, 'N/A', 'Receiving');

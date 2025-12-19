@@ -1,5 +1,28 @@
 console.log("scan.js loaded");
 
+// Common dropdown options for new-product form (loaded from API)
+let BRANDS = [];
+let SEED_SIZES = [];
+let PACKAGE_TYPES = [];
+
+// Load dropdown options from API
+async function loadDropdownOptions() {
+  try {
+    const response = await fetch('/api/dropdowns/options');
+    const options = await response.json();
+    
+    BRANDS = options.brand || [];
+    SEED_SIZES = options.seed_size || [];
+    PACKAGE_TYPES = options.package_type || [];
+  } catch (error) {
+    console.error('Failed to load dropdown options:', error);
+    // Fallback to empty arrays - admin panel allows adding options
+  }
+}
+
+// Load options on page load
+loadDropdownOptions();
+
 document.getElementById("lookupBtn").onclick = () => {
   const barcode = document.getElementById("barcodeInput").value.trim();
   if (barcode.length === 0) return;
@@ -13,11 +36,6 @@ document.getElementById("barcodeInput").addEventListener("keypress", (e) => {
     if (barcode.length > 0) lookupBarcode(barcode);
   }
 });
-
-// Common dropdown options for new-product form
-const BRANDS = ["Keystone", "Dekalb", "Croplan", "Brevant", "Asgrow", "Armor", "Agrigold", "NK", "Xitavo"];
-const SEED_SIZES = ["MP", "MF", "MR", "LP", "AF", "AF2", "AR", "AR2", "CPR2", "CPF2", "CPR", "CPF", "CPP", "F1", "F2", "R1", "R2"];
-const PACKAGE_TYPES = ["SP50", "SP45", "SP40", "SP35", "SP30", "MB45", "MB40", "80M", "140M"];
 
 function onSelectOther(prefix) {
   const sel = document.getElementById(prefix + "Select");

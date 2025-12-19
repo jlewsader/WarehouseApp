@@ -1,12 +1,16 @@
 import https from "https";
 import express from "express";
 import cors from "cors";
+import session from "express-session";
 import fs from "fs";
 import path from "path";
 import { connectDB } from "./db.js";
 import productsRouter from "./routes/products.js";
 import inventoryRouter from "./routes/inventory.js";
 import locationsRouter from "./routes/locations.js";
+import createAdminRoutes from "./routes/admin.js";
+import createDropdownRoutes from "./routes/dropdowns.js";
+import { createAuthRoutes } from "./middleware/auth.js";
 
 
 const options = {
@@ -19,6 +23,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
+
+// Session middleware for authentication
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'warehouse-admin-secret-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // Set to true if using HTTPS only
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
 
 app.get("/tunnel-ping", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -57,6 +73,18 @@ const init = () => {
     } else {
       console.log("Database schema loaded.");
 
+      // Load admin seed data (dropdown options and default admin user)
+      const adminSeedPath = path.resolve("src/models/admin-seed.sql");
+      const adminSeed = fs.readFileSync(adminSeedPath, "utf8");
+      
+      db.exec(adminSeed, (seedErr) => {
+        if (seedErr) {
+          console.error("Failed to load admin seed data:", seedErr);
+        } else {
+          console.log("Admin seed data loaded (dropdowns & default user).");
+        }
+      });
+
       // Ensure UNASSIGNED location exists
       db.run(
         `
@@ -73,10 +101,18 @@ const init = () => {
       );
     }
 
+    // Create auth routes
+    const authRoutes = createAuthRoutes(db);
+    app.post("/api/auth/login", authRoutes.login);
+    app.post("/api/auth/logout", authRoutes.logout);
+    app.get("/api/auth/check", authRoutes.checkAuth);
+
     // Register API routes
     app.use("/api/products", productsRouter);
     app.use("/api/inventory", inventoryRouter);
     app.use("/api/locations", locationsRouter);
+    app.use("/api/admin", createAdminRoutes(db));
+    app.use("/api/dropdowns", createDropdownRoutes(db));
 
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Warehouse API running on port ${PORT}`);
