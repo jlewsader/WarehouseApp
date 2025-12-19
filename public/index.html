@@ -254,14 +254,25 @@
               v-for="item in group.items"
               :key="item.id"
               class="inbound-row"
-              :class="{ selected: selectedInboundId === item.id }"
-              @click="selectInboundItem(item)"
+              :class="{ 
+                selected: selectedInboundId === item.id,
+                checked: isInventorySelected(item.id)
+              }"
             >
               <input
+                v-if="multiSelectMode"
+                type="checkbox"
+                :checked="isInventorySelected(item.id)"
+                @change="toggleInventorySelection(item.id)"
+                class="inbound-checkbox"
+              />
+              <input
+                v-else
                 type="radio"
                 name="inboundSelection"
                 :value="item.id"
                 v-model="selectedInboundId"
+                @click="selectInboundItem(item)"
               />
               <div class="row-body">
                 <div class="row-main">
@@ -337,14 +348,32 @@
       </div>
 
       <!-- Floating Action Bar for Multi-Select -->
-      <div v-if="multiSelectMode && selectedInventoryIds.length > 0" class="multi-select-action-bar">
+      <div v-if="multiSelectMode && selectedInventoryIds.length > 0 && !multiMoveMode" class="multi-select-action-bar">
         <div class="selection-info">
           <strong>{{ selectedInventoryIds.length }}</strong> items selected
         </div>
         <div class="action-buttons">
+          <button @click="startMultiMove" class="move-btn">Move Selected</button>
           <button @click="stageSelectedItems" class="stage-btn">Stage for Customer</button>
           <button @click="unstageSelectedItems" class="unstage-btn">Unstage</button>
           <button @click="clearMultiSelect" class="ghost">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Multi-Move Destination Selection Bar -->
+      <div v-if="multiMoveMode" class="multi-select-action-bar multi-move-bar">
+        <div class="selection-info">
+          Select destinations: <strong>{{ multiMoveDestinations.length }}</strong> of <strong>{{ selectedInventoryIds.length }}</strong>
+        </div>
+        <div class="action-buttons">
+          <button 
+            @click="confirmMultiMove" 
+            class="move-btn"
+            :disabled="multiMoveDestinations.length !== selectedInventoryIds.length"
+          >
+            Confirm Move
+          </button>
+          <button @click="cancelMultiMove" class="ghost">Cancel</button>
         </div>
       </div>
 
@@ -376,12 +405,16 @@
                       source: selectedSourceLocationId === cell.tiers.T.id,
                       'search-hit': isSearchHit(cell.tiers.T.id),
                       staged: inventoryAt(cell.tiers.T.id) && inventoryAt(cell.tiers.T.id).staged,
-                      checked: inventoryAt(cell.tiers.T.id) && isInventorySelected(inventoryAt(cell.tiers.T.id).id)
+                      checked: inventoryAt(cell.tiers.T.id) && isInventorySelected(inventoryAt(cell.tiers.T.id).id),
+                      'multi-move-dest': isMultiMoveDestination(cell.tiers.T.id)
                     }"
                     @click="onTierTap(cell.tiers.T)"
                   >
+                    <div v-if="isMultiMoveDestination(cell.tiers.T.id)" class="dest-number">
+                      {{ getMultiMoveDestinationNumber(cell.tiers.T.id) }}
+                    </div>
                     <input
-                      v-if="multiSelectMode && inventoryAt(cell.tiers.T.id)"
+                      v-if="multiSelectMode && !multiMoveMode && inventoryAt(cell.tiers.T.id)"
                       type="checkbox"
                       :checked="isInventorySelected(inventoryAt(cell.tiers.T.id).id)"
                       @click.stop="toggleInventorySelection(inventoryAt(cell.tiers.T.id).id)"
@@ -414,12 +447,16 @@
                       source: selectedSourceLocationId === cell.tiers.M.id,
                       'search-hit': isSearchHit(cell.tiers.M.id),
                       staged: inventoryAt(cell.tiers.M.id) && inventoryAt(cell.tiers.M.id).staged,
-                      checked: inventoryAt(cell.tiers.M.id) && isInventorySelected(inventoryAt(cell.tiers.M.id).id)
+                      checked: inventoryAt(cell.tiers.M.id) && isInventorySelected(inventoryAt(cell.tiers.M.id).id),
+                      'multi-move-dest': isMultiMoveDestination(cell.tiers.M.id)
                     }"
                     @click="onTierTap(cell.tiers.M)"
                   >
+                    <div v-if="isMultiMoveDestination(cell.tiers.M.id)" class="dest-number">
+                      {{ getMultiMoveDestinationNumber(cell.tiers.M.id) }}
+                    </div>
                     <input
-                      v-if="multiSelectMode && inventoryAt(cell.tiers.M.id)"
+                      v-if="multiSelectMode && !multiMoveMode && inventoryAt(cell.tiers.M.id)"
                       type="checkbox"
                       :checked="isInventorySelected(inventoryAt(cell.tiers.M.id).id)"
                       @click.stop="toggleInventorySelection(inventoryAt(cell.tiers.M.id).id)"
@@ -452,12 +489,16 @@
                       source: selectedSourceLocationId === cell.tiers.B.id,
                       'search-hit': isSearchHit(cell.tiers.B.id),
                       staged: inventoryAt(cell.tiers.B.id) && inventoryAt(cell.tiers.B.id).staged,
-                      checked: inventoryAt(cell.tiers.B.id) && isInventorySelected(inventoryAt(cell.tiers.B.id).id)
+                      checked: inventoryAt(cell.tiers.B.id) && isInventorySelected(inventoryAt(cell.tiers.B.id).id),
+                      'multi-move-dest': isMultiMoveDestination(cell.tiers.B.id)
                     }"
                     @click="onTierTap(cell.tiers.B)"
                   >
+                    <div v-if="isMultiMoveDestination(cell.tiers.B.id)" class="dest-number">
+                      {{ getMultiMoveDestinationNumber(cell.tiers.B.id) }}
+                    </div>
                     <input
-                      v-if="multiSelectMode && inventoryAt(cell.tiers.B.id)"
+                      v-if="multiSelectMode && !multiMoveMode && inventoryAt(cell.tiers.B.id)"
                       type="checkbox"
                       :checked="isInventorySelected(inventoryAt(cell.tiers.B.id).id)"
                       @click.stop="toggleInventorySelection(inventoryAt(cell.tiers.B.id).id)"

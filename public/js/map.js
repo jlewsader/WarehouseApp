@@ -36,6 +36,9 @@ const app = createApp({
       multiSelectMode: false,
       selectedInventoryIds: [],
       customerFilter: "",
+      // Multi-move state
+      multiMoveMode: false,
+      multiMoveDestinations: [], // Array of {inventoryId, locationId} pairs
       scan: {
         barcode: "",
         parsedLot: "",
@@ -344,6 +347,12 @@ const app = createApp({
 
     onTierTap(location) {
       const isEmpty = !this.isOccupied(location.id);
+
+      // Multi-move mode: selecting destinations
+      if (this.multiMoveMode && isEmpty) {
+        this.addMultiMoveDestination(location.id);
+        return;
+      }
 
       // Multi-select mode: toggle selection on occupied tiers
       if (this.multiSelectMode && !isEmpty) {
@@ -1009,6 +1018,103 @@ const app = createApp({
            } catch (err) {
              console.error(err);
              alert("Unstaging failed");
+           }
+         },
+
+         // Multi-move methods
+         startMultiMove() {
+           if (this.selectedInventoryIds.length === 0) {
+             alert("Please select items to move.");
+             return;
+           }
+
+           this.multiMoveMode = true;
+           this.multiMoveDestinations = [];
+         },
+
+         addMultiMoveDestination(locationId) {
+           // Check if already assigned as destination
+           const existing = this.multiMoveDestinations.find(d => d.locationId === locationId);
+           if (existing) {
+             // Remove it (toggle off)
+             this.multiMoveDestinations = this.multiMoveDestinations.filter(d => d.locationId !== locationId);
+             return;
+           }
+
+           // Check if we've assigned all items
+           if (this.multiMoveDestinations.length >= this.selectedInventoryIds.length) {
+             alert(`You've already selected ${this.selectedInventoryIds.length} destinations. Deselect a destination first or cancel.`);
+             return;
+           }
+
+           // Assign next inventory item to this location
+           const nextInventoryId = this.selectedInventoryIds[this.multiMoveDestinations.length];
+           this.multiMoveDestinations.push({
+             inventoryId: nextInventoryId,
+             locationId: locationId
+           });
+         },
+
+         isMultiMoveDestination(locationId) {
+           return this.multiMoveDestinations.some(d => d.locationId === locationId);
+         },
+
+         getMultiMoveDestinationNumber(locationId) {
+           const index = this.multiMoveDestinations.findIndex(d => d.locationId === locationId);
+           return index >= 0 ? index + 1 : null;
+         },
+
+         cancelMultiMove() {
+           this.multiMoveMode = false;
+           this.multiMoveDestinations = [];
+         },
+
+         async confirmMultiMove() {
+           if (this.multiMoveDestinations.length !== this.selectedInventoryIds.length) {
+             alert(`Please select ${this.selectedInventoryIds.length} destinations (${this.multiMoveDestinations.length} selected so far).`);
+             return;
+           }
+
+           const summary = this.multiMoveDestinations.map((dest, idx) => 
+             `${idx + 1}. Item ${dest.inventoryId} → Location ${dest.locationId}`
+           ).join('\n');
+
+           const proceed = confirm(`Confirm moving ${this.multiMoveDestinations.length} items?\n\n${summary}`);
+           if (!proceed) return;
+
+           try {
+             // Execute moves sequentially
+             let successCount = 0;
+             for (const dest of this.multiMoveDestinations) {
+               const res = await fetch("/api/inventory/move", {
+                 method: "POST",
+                 headers: { "Content-Type": "application/json" },
+                 body: JSON.stringify({
+                   inventory_id: dest.inventoryId,
+                   location_id: dest.locationId
+                 })
+               });
+
+               if (res.ok) {
+                 successCount++;
+               } else {
+                 const data = await res.json();
+                 console.error(`Failed to move item ${dest.inventoryId}:`, data.error);
+               }
+             }
+
+             alert(`Successfully moved ${successCount} of ${this.multiMoveDestinations.length} items`);
+
+             // Reset state
+             this.selectedInventoryIds = [];
+             this.multiSelectMode = false;
+             this.multiMoveMode = false;
+             this.multiMoveDestinations = [];
+
+             await Promise.all([this.refreshInventory(), this.refreshInbound()]);
+           } catch (err) {
+             console.error(err);
+             alert("Multi-move failed");
            }
          }
     },
