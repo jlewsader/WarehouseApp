@@ -20,7 +20,8 @@ router.get("/", (req, res) => {
       i.location_id,
       l.label AS location_label,
       l.zone,
-      i.owner
+      i.owner,
+      i.staged
     FROM inventory i
     JOIN products p ON p.id = i.product_id
     JOIN locations l ON l.id = i.location_id
@@ -56,7 +57,8 @@ router.get("/search", (req, res) => {
       i.location_id,
       l.label AS location_label,
       l.zone,
-      i.owner
+      i.owner,
+      i.staged
     FROM inventory i
     JOIN products p ON p.id = i.product_id
     JOIN locations l ON l.id = i.location_id
@@ -117,7 +119,8 @@ router.get("/location/:id", (req, res) => {
       i.location_id,
       l.label AS location_label,
       l.zone,
-      i.owner
+      i.owner,
+      i.staged
     FROM inventory i
     JOIN products p ON p.id = i.product_id
     JOIN locations l ON l.id = i.location_id
@@ -155,7 +158,8 @@ router.get("/product/:id", (req, res) => {
       i.location_id,
       l.label AS location_label,
       l.zone,
-      i.owner
+      i.owner,
+      i.staged
     FROM inventory i
     JOIN products p ON p.id = i.product_id
     JOIN locations l ON l.id = i.location_id
@@ -365,7 +369,8 @@ router.get("/unassigned", (req, res) => {
       i.lot,
       p.seed_size,
       p.package_type,
-      p.units_per_package
+      p.units_per_package,
+      i.staged
     FROM inventory i
     JOIN products p ON p.id = i.product_id
     WHERE i.location_id = 9999
@@ -429,6 +434,68 @@ router.post("/receive", (req, res) => {
         qty_inserted: insertedCount,
         product_id,
       });
+    });
+  });
+});
+
+/**
+ * STAGE inventory items for a customer
+ * Body: { inventory_ids: [1,2,3], customer: "CustomerName" }
+ */
+router.post("/stage", (req, res) => {
+  const db = req.app.locals.db;
+  const { inventory_ids, customer } = req.body;
+
+  if (!inventory_ids || !Array.isArray(inventory_ids) || inventory_ids.length === 0) {
+    return res.status(400).json({ error: "inventory_ids array is required" });
+  }
+
+  if (!customer || customer.trim() === "") {
+    return res.status(400).json({ error: "customer name is required" });
+  }
+
+  const placeholders = inventory_ids.map(() => "?").join(",");
+  const sql = `UPDATE inventory SET staged = 1, owner = ? WHERE id IN (${placeholders})`;
+  const params = [customer, ...inventory_ids];
+
+  db.run(sql, params, function (err) {
+    if (err) {
+      console.error("Failed to stage inventory:", err);
+      return res.status(500).json({ error: err.message });
+    }
+
+    res.json({
+      message: "Inventory staged",
+      staged_count: this.changes,
+      customer
+    });
+  });
+});
+
+/**
+ * UNSTAGE inventory items
+ * Body: { inventory_ids: [1,2,3] }
+ */
+router.post("/unstage", (req, res) => {
+  const db = req.app.locals.db;
+  const { inventory_ids } = req.body;
+
+  if (!inventory_ids || !Array.isArray(inventory_ids) || inventory_ids.length === 0) {
+    return res.status(400).json({ error: "inventory_ids array is required" });
+  }
+
+  const placeholders = inventory_ids.map(() => "?").join(",");
+  const sql = `UPDATE inventory SET staged = 0, owner = NULL WHERE id IN (${placeholders})`;
+
+  db.run(sql, inventory_ids, function (err) {
+    if (err) {
+      console.error("Failed to unstage inventory:", err);
+      return res.status(500).json({ error: err.message });
+    }
+
+    res.json({
+      message: "Inventory unstaged",
+      unstaged_count: this.changes
     });
   });
 });
