@@ -1,0 +1,12 @@
+#!/bin/bash
+# Quick backup wrapper - creates timestamped backup with one command
+
+cd /workspace
+./scripts/backup-database.sh
+
+echo ""
+echo "Quick access commands:"
+echo "  List backups:  ls -lh /workspace/backups/daily/"
+echo "  View report:   cat /workspace/backups/backup_report.txt"
+echo "  Restore:       ./scripts/restore-database.sh <file>"
+echo ""

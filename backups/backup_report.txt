@@ -1,0 +1,37 @@
+Warehouse Database Backup Report
+Generated: Fri Dec 19 18:01:43 UTC 2025
+=====================================
+
+Database Information:
+- Location: /workspace/warehouse.db
+- Size: 68K
+- Last Backup: 20251219_180142
+
+Backup Statistics:
+- Daily backups: 2 files
+- Weekly backups: 0 files
+- Monthly backups: 0 files
+
+Latest Backup:
+- File: /workspace/backups/daily/warehouse_20251219_180142.db.gz
+- Size: 12K
+
+Backup Directories:
+- Daily: /workspace/backups/daily
+- Weekly: /workspace/backups/weekly
+- Monthly: /workspace/backups/monthly
+
+Retention Policy:
+- Daily: 30 days
+- Weekly: 12 weeks (84 days)
+- Monthly: Indefinite (manual cleanup)
+
+Cloud Sync Status:
+- Disabled (rclone not configured)
+
+Recovery Instructions:
+1. Stop the application
+2. Restore backup: gunzip -c <backup-file.db.gz> > /workspace/warehouse.db
+3. Restart the application
+
+=====================================
