@@ -149,11 +149,11 @@
           </p>
           <label class="barcode-field" style="margin-top: 8px;">
             Lot
-            <input type="text" v-model="scan.receivingLot" />
+            <input type="text" v-model="scan.receivingLot" required />
           </label>
           <label class="barcode-field" style="margin-top: 8px;">
             Quantity Received
-            <input type="number" min="1" v-model.number="scan.receivingQty" />
+            <input type="number" min="1" v-model.number="scan.receivingQty" required />
           </label>
           <div class="action-buttons" style="margin-top: 10px;">
             <button @click="receiveInventoryFromScan">Receive</button>
@@ -169,7 +169,7 @@
 
           <label class="barcode-field">
             Brand
-            <select v-model="scan.newProduct.brand">
+            <select v-model="scan.newProduct.brand" required>
               <option value="">-- Select Brand --</option>
               <option v-for="b in scanOptions.brands" :key="b" :value="b">{{ b }}</option>
               <option value="__OTHER__">Other...</option>
@@ -180,22 +180,23 @@
               v-model="scan.newProduct.brandOther"
               placeholder="Type brand"
               style="margin-top:6px;"
+              required
             />
           </label>
 
           <label class="barcode-field">
             Product Code / Description
-            <input type="text" v-model="scan.newProduct.product_code" />
+            <input type="text" v-model="scan.newProduct.product_code" required />
           </label>
 
           <label class="barcode-field">
             Lot
-            <input type="text" v-model="scan.newProduct.lot" />
+            <input type="text" v-model="scan.newProduct.lot" required />
           </label>
 
           <label class="barcode-field">
             Seed Size
-            <select v-model="scan.newProduct.seed_size">
+            <select v-model="scan.newProduct.seed_size" required>
               <option value="">-- Select Size --</option>
               <option v-for="s in scanOptions.seedSizes" :key="s" :value="s">{{ s }}</option>
               <option value="__OTHER__">Other...</option>
@@ -206,12 +207,13 @@
               v-model="scan.newProduct.seed_size_other"
               placeholder="Type size"
               style="margin-top:6px;"
+              required
             />
           </label>
 
           <label class="barcode-field">
             Package Type
-            <select v-model="scan.newProduct.package_type">
+            <select v-model="scan.newProduct.package_type" required>
               <option value="">-- Select Package --</option>
               <option v-for="p in scanOptions.packageTypes" :key="p" :value="p">{{ p }}</option>
               <option value="__OTHER__">Other...</option>
@@ -222,6 +224,7 @@
               v-model="scan.newProduct.package_type_other"
               placeholder="Type package"
               style="margin-top:6px;"
+              required
             />
           </label>
 
@@ -229,7 +232,7 @@
             <button @click="saveNewProduct">Save Product</button>
             <button type="button" class="ghost" @click="resetScanState()">Cancel</button>
           </div>
-          <p class="muted" style="margin-top:6px;">Brand and product code are required.</p>
+          <p class="muted" style="margin-top:6px;"><b>ALL</b> fields are required.</p>
         </div>
       </div>
 
