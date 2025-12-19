@@ -8,13 +8,17 @@
 </head>
 <body>
 
+<main id="app">
 <header>
   <h1>Warehouse System</h1>
-  <a href="/admin.html" style="position: absolute; right: 20px; top: 20px; color: white; text-decoration: none; padding: 8px 16px; background-color: rgba(255,255,255,0.2); border-radius: 4px;">⚙️ Admin</a>
+  <div class="header-controls">
+    <button @click="toggleSearch" class="header-btn" :class="{ active: showSearch }">🔍 Search</button>
+    <button @click="toggleInbound" class="header-btn" :class="{ active: showInbound }">📦 Inbound</button>
+    <a href="/admin.html" class="admin-link">⚙️ Admin</a>
+  </div>
 </header>
 
-<main id="app">
-  <section class="search-panel">
+  <section class="search-panel" v-show="showSearch">
     <div class="section-heading">
       <div>
         <p class="eyebrow">Search</p>
@@ -93,7 +97,7 @@
   </section>
 
   <div class="map-layout">
-    <section class="inbound-panel" id="inbound">
+    <section class="inbound-panel" id="inbound" v-show="showInbound">
       <div class="section-heading">
         <div>
           <p class="eyebrow">Inbound</p>
@@ -291,30 +295,6 @@
     </section>
 
     <section class="map-panel">
-      <div class="map-actions">
-        <div class="selection-summary">
-          <p>
-            <strong>Destination: </strong>
-            <span v-if="selectedDestinationId">Location {{ selectedDestinationId }}</span>
-            <span v-else class="muted">Choose an empty tier on the map.</span>
-          </p>
-          <p>
-            <strong>Item to move: </strong>
-            <span v-if="selectedMoveSummary">{{ selectedMoveSummary }}</span>
-            <span v-else class="muted">Select inbound or click an occupied location.</span>
-          </p>
-        </div>
-        <div class="action-buttons">
-          <button type="button" class="ghost" @click="clearSelections">Clear selections</button>
-          <button
-            :disabled="!selectedMoveInventoryId || !selectedDestinationId"
-            @click="confirmMove"
-          >
-            Move item here
-          </button>
-        </div>
-      </div>
-
       <div class="section-heading">
         <div>
           <p class="eyebrow">Map</p>

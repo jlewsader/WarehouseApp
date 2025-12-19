@@ -3,6 +3,8 @@ const { createApp } = Vue;
 const app = createApp({
   data() {
     return {
+      showSearch: false,
+      showInbound: false,
       locations: [],
       inventoryByLocation: {},
       inbound: [],
@@ -261,6 +263,21 @@ const app = createApp({
   },
 
   methods: {
+    // UI Toggle methods
+    toggleSearch() {
+      this.showSearch = !this.showSearch;
+      if (this.showSearch && this.showInbound) {
+        this.showInbound = false;
+      }
+    },
+
+    toggleInbound() {
+      this.showInbound = !this.showInbound;
+      if (this.showInbound && this.showSearch) {
+        this.showSearch = false;
+      }
+    },
+
     // Camera scanner integration
     openCameraScanner(mode) {
       if (typeof window.openCameraScanner === 'function') {

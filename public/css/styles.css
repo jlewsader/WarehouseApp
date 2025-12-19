@@ -4,6 +4,67 @@ body {
   background: #ffffff;
 }
 
+header {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  color: white;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.header-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.header-btn {
+  padding: 8px 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.header-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.header-btn.active {
+  background: white;
+  color: #0ea5e9;
+  border-color: white;
+}
+
+.admin-link {
+  padding: 8px 16px;
+  color: white;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.admin-link:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 .search-panel {
   margin: 20px;
   background: #f8f9fb;
@@ -11,6 +72,18 @@ body {
   border-radius: 10px;
   padding: 18px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .search-grid {
@@ -120,6 +193,15 @@ body {
   padding: 20px;
   margin: 0 20px 20px;
   align-items: start;
+  transition: grid-template-columns 0.3s ease;
+}
+
+.map-layout:has(.inbound-panel:not([style*="display: none"])) {
+  grid-template-columns: 360px 1fr;
+}
+
+.map-layout:not(:has(.inbound-panel:not([style*="display: none"]))) {
+  grid-template-columns: 1fr;
 }
 
 @media (max-width: 960px) {
@@ -135,6 +217,21 @@ body {
   border-radius: 10px;
   padding: 18px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.inbound-panel {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .section-heading {
@@ -619,6 +716,24 @@ body {
 }
 
 @media (max-width: 768px) {
+  header h1 {
+    font-size: 18px;
+  }
+
+  .header-controls {
+    gap: 8px;
+  }
+
+  .header-btn {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .admin-link {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
   .zones-container {
     flex-direction: column;
     gap: 20px;
