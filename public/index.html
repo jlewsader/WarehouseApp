@@ -552,7 +552,9 @@
       <h3>Scan Barcode</h3>
       <button onclick="closeCameraScanner()" class="close-btn" aria-label="Close scanner">✕</button>
     </div>
-    <div id="qr-reader" class="scanner-video"></div>
+    <div id="qr-reader" class="scanner-video">
+      <div class="scan-guide"></div>
+    </div>
     <div class="scanner-footer">
       <p id="scanner-status" class="scanner-status">Position barcode within frame</p>
       <div class="scanner-buttons">
@@ -565,7 +567,7 @@
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 <script src="/js/barcode-utils.js"></script>
-<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script src="https://unpkg.com/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
 <script src="/js/scanner.js"></script>
 <script src="/js/map.js"></script>
 
