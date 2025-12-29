@@ -52,7 +52,7 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const HOST = "0.0.0.0";
 
 https.createServer(options, app).listen(PORT, HOST, () => {
@@ -113,10 +113,6 @@ const init = () => {
     app.use("/api/locations", locationsRouter);
     app.use("/api/admin", createAdminRoutes(db));
     app.use("/api/dropdowns", createDropdownRoutes(db));
-
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Warehouse API running on port ${PORT}`);
-    });
   });
 };
 
