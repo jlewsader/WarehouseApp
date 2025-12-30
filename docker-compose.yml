@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  warehouseapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: warehouseapp
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - SESSION_SECRET=${SESSION_SECRET}
+    volumes:
+      # SQLite database - mount as individual file to persist data
+      # Create an empty file first with: touch data/warehouse.db
+      - ./data/warehouse.db:/app/warehouse.db
+      # Backup persistence
+      - ./backups:/app/backups
+      # SSL certificates (read-only)
+      - ./certs:/app/certs:ro
+      # Environment file (read-only)
+      - ./.env:/app/.env:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "node", "-e", "const https = require('https'); const options = { hostname: 'localhost', port: 3001, path: '/health', method: 'GET', rejectUnauthorized: false }; const req = https.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => { process.exit(1); }); req.end();"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    networks:
+      - warehouse-network
+
+networks:
+  warehouse-network:
+    driver: bridge
