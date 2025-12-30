@@ -190,7 +190,7 @@ The SQLite database is stored in the `data` directory. To back it up:
 ```bash
 # Create a timestamped backup
 timestamp=$(date +%Y%m%d_%H%M%S)
-docker-compose exec warehouseapp sqlite3 /app/data/warehouse.db ".backup /app/backups/warehouse_backup_$timestamp.db"
+docker-compose exec warehouseapp sqlite3 /app/warehouse.db ".backup /app/backups/warehouse_backup_$timestamp.db"
 
 # Or copy the database file directly (stop container first)
 docker-compose down
@@ -381,7 +381,7 @@ To access the SQLite database directly:
 
 ```bash
 # Access database from inside the container
-docker-compose exec warehouseapp sqlite3 /app/data/warehouse.db
+docker-compose exec warehouseapp sqlite3 /app/warehouse.db
 
 # Or use sqlite3 on host
 sqlite3 data/warehouse.db
@@ -472,10 +472,10 @@ Optimize the SQLite database periodically:
 
 ```bash
 # Run VACUUM to optimize database
-docker-compose exec warehouseapp sqlite3 /app/data/warehouse.db "VACUUM;"
+docker-compose exec warehouseapp sqlite3 /app/warehouse.db "VACUUM;"
 
 # Analyze database for query optimization
-docker-compose exec warehouseapp sqlite3 /app/data/warehouse.db "ANALYZE;"
+docker-compose exec warehouseapp sqlite3 /app/warehouse.db "ANALYZE;"
 ```
 
 ## Support

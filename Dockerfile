@@ -25,11 +25,10 @@ RUN addgroup -g 1001 nodejs && \
 
 WORKDIR /app
 
-# Copy package files and install production dependencies only
+# Copy package files for reference
 COPY package*.json ./
-RUN npm ci --only=production
 
-# Copy built native modules from builder stage
+# Copy built native modules from builder stage (includes all dependencies)
 COPY --from=builder /app/node_modules ./node_modules
 
 # Copy application code with proper ownership
