@@ -4,7 +4,7 @@ import sqlite3 from "sqlite3";
 sqlite3.verbose();
 
 export function connectDB() {
-  const db = new sqlite3.Database("./warehouse.db", sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+  const db = new sqlite3.Database("./data/warehouse.db", sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
     if (err) {
       console.error("Failed to connect to DB:", err);
     } else {

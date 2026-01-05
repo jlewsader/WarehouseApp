@@ -7,6 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: warehouseapp
     restart: unless-stopped
+
     ports:
       - "3001:3001"
     environment:
@@ -14,15 +15,14 @@ services:
       - PORT=3001
       - SESSION_SECRET=${SESSION_SECRET}
     volumes:
-      # SQLite database - mount as individual file to persist data
-      # Create an empty file first with: touch data/warehouse.db
-      - ./data/warehouse.db:/app/warehouse.db
+      # SQLite database directory - mount directory instead of file
+      - ./data:/app/data:z
       # Backup persistence
-      - ./backups:/app/backups
+      - ./backups:/app/backups:z
       # SSL certificates (read-only)
-      - ./certs:/app/certs:ro
+      - ./certs:/app/certs:ro,z
       # Environment file (read-only)
-      - ./.env:/app/.env:ro
+      - ./.env:/app/.env:ro,z
     deploy:
       resources:
         limits:

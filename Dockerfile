@@ -36,7 +36,8 @@ COPY --chown=nodejs:nodejs . .
 
 # Create required directories with proper permissions
 RUN mkdir -p /app/backups /app/certs /app/data && \
-    chown -R nodejs:nodejs /app/backups /app/certs /app/data
+    chown -R nodejs:nodejs /app/backups /app/certs /app/data && \
+    chmod 777 /app/data
 
 # Switch to non-root user
 USER nodejs
