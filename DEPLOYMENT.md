@@ -1,489 +1,433 @@
-# WarehouseApp Docker Deployment Guide
+# WarehouseApp Deployment Guide
 
-This guide provides comprehensive instructions for deploying WarehouseApp using Docker and Docker Compose for testing and production environments, including VPS hosting.
+Complete deployment guide for running WarehouseApp with nginx reverse proxy.
 
-## Prerequisites
+## 📋 Table of Contents
 
-Before deploying WarehouseApp, ensure you have the following installed:
+- [Local Development](#local-development)
+- [Production Deployment](#production-deployment)
+- [Configuration](#configuration)
+- [Maintenance](#maintenance)
+- [Troubleshooting](#troubleshooting)
 
-1. **Docker** (version 20.10 or later)
-   - Installation: https://docs.docker.com/engine/install/
-   
-2. **Docker Compose** (version 2.0 or later)
-   - Usually included with Docker Desktop
-   - For Linux: https://docs.docker.com/compose/install/
+---
 
-3. **SSL Certificates**
-   - Self-signed certificates (for testing)
-   - Valid SSL certificates from Let's Encrypt or other CA (for production)
+## Local Development
 
-4. **Domain/IP Address** (optional but recommended for production)
-   - A domain name pointing to your server
-   - Or a static IP address
-
-## Quick Start
-
-Follow these steps to get WarehouseApp running with Docker:
-
-### 1. Clone the Repository
+### Quick Start
 
 ```bash
-git clone https://github.com/jlewsader/WarehouseApp.git
-cd WarehouseApp
+# Start the application
+docker compose -f docker-compose.nginx.yml up -d
+
+# View logs
+docker compose -f docker-compose.nginx.yml logs -f
+
+# Stop everything
+docker compose -f docker-compose.nginx.yml down
 ```
 
-### 2. Environment Setup
+### Access URLs
 
-Copy the production environment template and edit the values:
+- **HTTPS**: https://localhost:8443
+- **HTTP**: http://localhost:8080 (redirects to HTTPS)
+- **Health Check**: https://localhost:8443/health
 
-```bash
-cp .env.production .env
+### Architecture
+
+```
+Browser → nginx (HTTPS:8443) → warehouseapp (HTTP:3001)
+        ↳ nginx (HTTP:8080) redirects to HTTPS
 ```
 
-Edit the `.env` file and change the `SESSION_SECRET` to a strong random value:
+**Local Development Setup:**
+- nginx terminates SSL using mkcert certificates
+- App runs on HTTP internally (port 3001)
+- nginx adds security headers and proxies requests
+- App container not directly exposed to host
 
+### SSL Certificates for Development
+
+The app uses mkcert certificates in `./certs/`:
+- `localhost+3.pem` (certificate)
+- `localhost+3-key.pem` (private key)
+
+Valid for: localhost, 127.0.0.1, ::1
+
+**To regenerate certificates:**
 ```bash
-# Generate a secure SESSION_SECRET
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-Copy the generated value and update the `SESSION_SECRET` in your `.env` file.
-
-### 3. SSL Certificate Setup
-
-You have two options for SSL certificates:
-
-#### Option A: Use Existing Certificates
-
-If you have existing SSL certificates, place them in the `certs` directory:
-
-```bash
-cp /path/to/your/certificate.pem certs/localhost+3.pem
-cp /path/to/your/private-key.pem certs/localhost+3-key.pem
-```
-
-#### Option B: Generate Self-Signed Certificates with mkcert (Recommended for Testing)
-
-For local testing, use mkcert to generate trusted self-signed certificates:
-
-**Install mkcert on Ubuntu/Debian:**
-
-```bash
-# Install mkcert
-sudo apt update
-sudo apt install -y wget libnss3-tools
-wget https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
-chmod +x mkcert-v1.4.4-linux-amd64
-sudo mv mkcert-v1.4.4-linux-amd64 /usr/local/bin/mkcert
+# Install mkcert (if not already installed)
+# macOS: brew install mkcert
+# Linux: See https://github.com/FiloSottile/mkcert
 
 # Install local CA
 mkcert -install
 
-# Generate certificates for localhost
+# Generate new certificates
 cd certs
 mkcert localhost 127.0.0.1 ::1
-mv localhost+2.pem localhost+3.pem
-mv localhost+2-key.pem localhost+3-key.pem
-cd ..
 ```
 
-**For production with Let's Encrypt:**
+---
 
+## Production Deployment
+
+### Prerequisites
+
+1. Server with Docker and Docker Compose installed
+2. Domain name pointing to your server
+3. SSL certificate (Let's Encrypt recommended)
+4. Ports 80 and 443 available
+
+### Production Configuration
+
+**1. Set up SSL certificates**
+
+Option A: Let's Encrypt (recommended)
 ```bash
 # Install certbot
-sudo apt update
-sudo apt install -y certbot
+sudo apt-get install certbot
 
-# Generate certificates (replace yourdomain.com)
+# Get certificate
 sudo certbot certonly --standalone -d yourdomain.com
 
-# Copy certificates to certs directory
-sudo cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem certs/localhost+3.pem
-sudo cp /etc/letsencrypt/live/yourdomain.com/privkey.pem certs/localhost+3-key.pem
-sudo chown $USER:$USER certs/*
+# Copy certificates to app directory
+sudo cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem ./certs/cert.pem
+sudo cp /etc/letsencrypt/live/yourdomain.com/privkey.pem ./certs/key.pem
+sudo chown $(whoami):$(whoami) ./certs/*.pem
 ```
 
-### 4. Create Data Directories
+Option B: Custom certificates
+```bash
+# Copy your certificates to ./certs/
+cp your-cert.pem ./certs/cert.pem
+cp your-key.pem ./certs/key.pem
+```
 
-Create the necessary directories and database file for data persistence:
+**2. Configure nginx**
 
 ```bash
-mkdir -p data backups
-touch data/warehouse.db
+# Use production nginx config
+cp nginx.conf nginx-current.conf
+
+# Edit server_name in nginx-current.conf
+# Replace "server_name _;" with "server_name yourdomain.com;"
 ```
 
-### 5. Build and Start the Container
+**3. Update docker-compose ports**
 
-Build the Docker image and start the container:
+Edit `docker-compose.nginx.yml` to use standard ports:
+```yaml
+nginx:
+  ports:
+    - "80:80"    # HTTP
+    - "443:443"  # HTTPS
+```
+
+**4. Set environment variables**
 
 ```bash
-# Build the image
-docker-compose build
-
-# Start the container in detached mode
-docker-compose up -d
+# Create/edit .env file
+echo "SESSION_SECRET=$(openssl rand -base64 32)" > .env
+echo "NODE_ENV=production" >> .env
 ```
 
-### 6. Verify Deployment
-
-Check that the container is running:
+**5. Deploy**
 
 ```bash
-# Check container status
-docker-compose ps
+# Pull latest code
+git pull
 
-# Check application health
-curl -k https://localhost:3001/health
+# Build and start containers
+docker compose -f docker-compose.nginx.yml up -d --build
+
+# Verify deployment
+docker compose -f docker-compose.nginx.yml ps
+curl https://yourdomain.com/health
 ```
 
-You should see:
-```json
-{"status":"ok"}
-```
+### Certificate Renewal (Let's Encrypt)
 
-Access the application at: `https://localhost:3001`
-
-## Container Management
-
-### Stop the Application
-
+Set up automatic renewal:
 ```bash
-docker-compose down
+# Test renewal
+sudo certbot renew --dry-run
+
+# Add cron job for auto-renewal (runs daily)
+echo "0 0 * * * certbot renew --post-hook 'cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem /path/to/app/certs/cert.pem && cp /etc/letsencrypt/live/yourdomain.com/privkey.pem /path/to/app/certs/key.pem && docker compose -f /path/to/app/docker-compose.nginx.yml restart nginx'" | sudo crontab -
 ```
 
-### Restart the Application
+---
 
+## Configuration
+
+### Configuration Files
+
+- **docker-compose.nginx.yml** - Docker orchestration
+- **nginx-current.conf** - Active nginx configuration
+- **nginx-local-dev.conf** - Template for local development
+- **nginx.conf** - Template for production
+- **.env** - Environment variables
+
+### Nginx Configuration
+
+**Local Development (`nginx-local-dev.conf`):**
+- Uses mkcert localhost certificates
+- Listens on ports 80 and 443
+- Server name: localhost, 127.0.0.1
+
+**Production (`nginx.conf`):**
+- Uses custom SSL certificates (cert.pem, key.pem)
+- Includes Let's Encrypt ACME challenge support
+- Server name: _ (wildcard, should be changed to your domain)
+
+**To switch configurations:**
 ```bash
-docker-compose restart
+# Use local dev config
+cp nginx-local-dev.conf nginx-current.conf
+
+# Use production config
+cp nginx.conf nginx-current.conf
+
+# Apply changes
+docker compose -f docker-compose.nginx.yml restart nginx
 ```
 
-### View Logs
+### Environment Variables
 
-View real-time logs:
-
-```bash
-# Follow logs
-docker-compose logs -f
-
-# View last 100 lines
-docker-compose logs --tail=100
+Required in `.env`:
+```
+SESSION_SECRET=<random-secret-key>
+NODE_ENV=production
 ```
 
-### Update the Application
+Optional:
+```
+PORT=3001  # App internal port (default: 3001)
+```
 
-To update to the latest version:
+### Container Configuration
 
+**warehouseapp container:**
+- Runs Node.js app on HTTP port 3001
+- Not exposed to host (internal only)
+- Environment: `BEHIND_PROXY=true` (enables secure cookies)
+- Resource limits: 512MB RAM, 1 CPU
+
+**nginx container:**
+- nginx:alpine image
+- Terminates SSL/TLS
+- Proxies requests to app
+- Adds security headers
+
+---
+
+## Maintenance
+
+### Common Operations
+
+**View logs:**
 ```bash
-# Pull latest changes
+# All services
+docker compose -f docker-compose.nginx.yml logs -f
+
+# Specific service
+docker compose -f docker-compose.nginx.yml logs -f nginx
+docker compose -f docker-compose.nginx.yml logs -f warehouseapp
+```
+
+**Restart services:**
+```bash
+# Restart nginx only
+docker compose -f docker-compose.nginx.yml restart nginx
+
+# Restart app only
+docker compose -f docker-compose.nginx.yml restart warehouseapp
+
+# Restart all
+docker compose -f docker-compose.nginx.yml restart
+```
+
+**Update application:**
+```bash
+# Pull latest code
 git pull
 
 # Rebuild and restart
-docker-compose down
-docker-compose build
-docker-compose up -d
+docker compose -f docker-compose.nginx.yml up -d --build
+
+# Or rebuild specific service
+docker compose -f docker-compose.nginx.yml build warehouseapp
+docker compose -f docker-compose.nginx.yml up -d warehouseapp
 ```
 
-### Backup Database
-
-The SQLite database is stored in the `data` directory. To back it up:
-
+**Update nginx config:**
 ```bash
-# Create a timestamped backup
-timestamp=$(date +%Y%m%d_%H%M%S)
-docker-compose exec warehouseapp sqlite3 /app/warehouse.db ".backup /app/backups/warehouse_backup_$timestamp.db"
+# Edit config
+nano nginx-current.conf
 
-# Or copy the database file directly (stop container first)
-docker-compose down
-cp data/warehouse.db backups/warehouse_backup_$timestamp.db
-docker-compose up -d
+# Test config syntax
+docker compose -f docker-compose.nginx.yml exec nginx nginx -t
+
+# Apply changes
+docker compose -f docker-compose.nginx.yml restart nginx
 ```
 
-### Restore Database
+### Data Persistence
 
-To restore from a backup:
+Data persists in host directories (mounted as volumes):
+- `./data/warehouse.db` - SQLite database
+- `./backups/` - Database backups
+- `.env` - Environment variables
 
+These survive container restarts and rebuilds.
+
+### Backup Strategy
+
+**Automated backups** are configured in the app (see BACKUP_QUICKSTART.md):
+- Automatic daily backups at 2 AM
+- Backups stored in `./backups/`
+- Retention: 7 daily, 4 weekly backups
+
+**Manual backup:**
 ```bash
-# Stop the container
-docker-compose down
+# Backup database
+docker compose -f docker-compose.nginx.yml exec warehouseapp node -e "require('./src/services/backupService').createBackup()"
 
-# Restore the backup
-cp backups/warehouse_backup_YYYYMMDD_HHMMSS.db data/warehouse.db
-
-# Start the container
-docker-compose up -d
+# Or copy database directly
+cp ./data/warehouse.db ./backups/manual-backup-$(date +%Y%m%d).db
 ```
 
-## VPS-Specific Setup
+### Updates and Security
 
-For production deployment on a VPS (Virtual Private Server):
-
-### Firewall Configuration
-
-Configure your firewall to allow traffic on port 3001:
-
+**Keep Docker images updated:**
 ```bash
-# Using UFW (Ubuntu/Debian)
-sudo ufw allow 3001/tcp
-sudo ufw status
+# Pull latest nginx image
+docker pull nginx:alpine
+
+# Rebuild app with latest base image
+docker compose -f docker-compose.nginx.yml build --no-cache warehouseapp
+
+# Restart with new images
+docker compose -f docker-compose.nginx.yml up -d
 ```
 
-### Nginx Reverse Proxy (Recommended)
+**Monitor security:**
+- Subscribe to security advisories for Node.js and nginx
+- Keep SSL certificates valid
+- Review nginx access logs regularly
 
-For production, use Nginx as a reverse proxy with SSL termination:
-
-**Install Nginx:**
-
-```bash
-sudo apt update
-sudo apt install -y nginx
-```
-
-**Create Nginx configuration** (`/etc/nginx/sites-available/warehouseapp`):
-
-```nginx
-server {
-    listen 80;
-    listen [::]:80;
-    server_name yourdomain.com;
-    
-    # Redirect HTTP to HTTPS
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name yourdomain.com;
-
-    # SSL certificates
-    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
-    
-    # SSL configuration
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-
-    # Proxy settings
-    location / {
-        proxy_pass https://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        
-        # Allow self-signed certificates for backend
-        proxy_ssl_verify off;
-    }
-}
-```
-
-**Enable the site:**
-
-```bash
-sudo ln -s /etc/nginx/sites-available/warehouseapp /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
-```
-
-### Systemd Service for Auto-Start
-
-Create a systemd service to automatically start the application on boot:
-
-**Create service file** (`/etc/systemd/system/warehouseapp.service`):
-
-```ini
-[Unit]
-Description=WarehouseApp Docker Container
-Requires=docker.service
-After=docker.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-WorkingDirectory=/home/youruser/WarehouseApp
-ExecStart=/usr/bin/docker-compose up -d
-ExecStop=/usr/bin/docker-compose down
-User=youruser
-Group=youruser
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Enable and start the service:**
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable warehouseapp
-sudo systemctl start warehouseapp
-sudo systemctl status warehouseapp
-```
-
-## Monitoring
-
-### Resource Usage
-
-Monitor container resource usage:
-
-```bash
-# Real-time stats
-docker stats warehouseapp
-
-# Container resource usage
-docker-compose stats
-```
-
-### Disk Usage
-
-Check disk usage:
-
-```bash
-# Docker disk usage
-docker system df
-
-# Container size
-docker-compose ps -a --format "table {{.Name}}\t{{.Size}}"
-
-# Volume sizes
-du -sh data backups
-```
+---
 
 ## Troubleshooting
 
-### Container Won't Start
-
-Check logs for errors:
+### HTTPS Not Working
 
 ```bash
-docker-compose logs
+# Check nginx is running
+docker compose -f docker-compose.nginx.yml ps
 
-# Check if port is already in use
-sudo netstat -tulpn | grep 3001
+# Check nginx config
+docker compose -f docker-compose.nginx.yml exec nginx nginx -t
+
+# Check ports are listening
+docker compose -f docker-compose.nginx.yml exec nginx netstat -tlnp
+
+# Restart nginx
+docker compose -f docker-compose.nginx.yml restart nginx
 ```
 
-### Permission Issues
-
-If you encounter permission issues with volumes:
+### App Not Responding
 
 ```bash
-# Fix ownership (1001:1001 is the nodejs user in the container)
-sudo chown -R 1001:1001 data backups
+# Check app health
+curl -k https://localhost:8443/health
+
+# Check app container logs
+docker compose -f docker-compose.nginx.yml logs warehouseapp
+
+# Check app is running
+docker compose -f docker-compose.nginx.yml exec warehouseapp wget -q -O- http://localhost:3001/health
 ```
 
-### Database Access
-
-To access the SQLite database directly:
+### Certificate Issues
 
 ```bash
-# Access database from inside the container
-docker-compose exec warehouseapp sqlite3 /app/warehouse.db
+# Verify certificate files exist
+ls -l ./certs/
 
-# Or use sqlite3 on host
-sqlite3 data/warehouse.db
+# For local dev: Check mkcert CA is installed
+mkcert -CAROOT
+
+# For production: Check certificate validity
+openssl x509 -in ./certs/cert.pem -text -noout | grep -E 'Not (Before|After)'
+
+# Check nginx can read certificates
+docker compose -f docker-compose.nginx.yml exec nginx ls -l /etc/nginx/ssl/
 ```
 
-### SSL Certificate Issues
-
-If you have SSL certificate errors:
+### Database Issues
 
 ```bash
-# Verify certificate files exist and have correct permissions
-ls -la certs/
-chmod 644 certs/localhost+3.pem
-chmod 600 certs/localhost+3-key.pem
+# Check database file exists
+ls -l ./data/warehouse.db
+
+# Check permissions
+ls -ld ./data
+
+# Restore from backup
+cp ./backups/latest-backup.db ./data/warehouse.db
+docker compose -f docker-compose.nginx.yml restart warehouseapp
 ```
 
-### Reset Everything (WARNING: Data Loss)
-
-To completely reset the application:
+### Port Conflicts
 
 ```bash
-# Stop and remove containers, volumes
-docker-compose down -v
+# Check what's using ports 8080/8443 (or 80/443)
+sudo netstat -tlnp | grep -E ':(80|443|8080|8443)'
 
-# Remove data (WARNING: This deletes your database!)
-rm -rf data/*
-
-# Rebuild and start fresh
-docker-compose up -d
+# Stop conflicting services or change ports in docker-compose.nginx.yml
 ```
 
-## Security Recommendations
-
-1. **Change Default SESSION_SECRET**
-   - Always use a strong, random SESSION_SECRET in production
-   - Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-
-2. **Use Proper SSL Certificates**
-   - For production, use certificates from Let's Encrypt or a trusted CA
-   - Never use self-signed certificates in production
-
-3. **Regular Backups**
-   - Set up automated daily backups of the database
-   - Store backups in a separate location or cloud storage
-   - Test backup restoration regularly
-
-4. **Update Regularly**
-   - Keep Docker and Docker Compose updated
-   - Regularly update the application with `git pull` and rebuild
-
-5. **Limit Access**
-   - Use firewall rules to restrict access to necessary ports only
-   - Consider using a VPN for administrative access
-   - Implement IP whitelisting if appropriate
-
-6. **Monitor Logs**
-   - Regularly review application logs for suspicious activity
-   - Set up log rotation to prevent disk space issues
-   - Consider using a log aggregation service for production
-
-## Performance Tuning
-
-### Adjusting Resource Limits
-
-Edit `docker-compose.yml` to adjust resource limits based on your needs:
-
-```yaml
-deploy:
-  resources:
-    limits:
-      cpus: '2'          # Increase for more CPU
-      memory: 1G         # Increase for more memory
-    reservations:
-      cpus: '1'
-      memory: 512M
-```
-
-After changes, rebuild and restart:
+### View All Container Details
 
 ```bash
-docker-compose down
-docker-compose up -d
+# Service status
+docker compose -f docker-compose.nginx.yml ps
+
+# Resource usage
+docker stats warehouseapp warehouseapp-nginx
+
+# Inspect network
+docker network inspect warehouseapp_warehouse-network
+
+# Shell access
+docker compose -f docker-compose.nginx.yml exec warehouseapp sh
+docker compose -f docker-compose.nginx.yml exec nginx sh
 ```
 
-### Database Optimization
+---
 
-Optimize the SQLite database periodically:
+## Default Credentials
 
-```bash
-# Run VACUUM to optimize database
-docker-compose exec warehouseapp sqlite3 /app/warehouse.db "VACUUM;"
+**⚠️ IMPORTANT - Change these immediately!**
 
-# Analyze database for query optimization
-docker-compose exec warehouseapp sqlite3 /app/warehouse.db "ANALYZE;"
-```
+- **Username**: admin
+- **Password**: admin123
 
-## Support
+Change the admin password after first login through the admin interface.
 
-For issues, questions, or contributions:
-- GitHub Issues: https://github.com/jlewsader/WarehouseApp/issues
-- Documentation: See README.md for application-specific documentation
+---
 
-## License
+## Security Checklist
 
-See the LICENSE file in the repository root for license information.
+- [ ] Change default admin password
+- [ ] Generate strong SESSION_SECRET
+- [ ] Use valid SSL certificates
+- [ ] Configure firewall (allow only 80, 443)
+- [ ] Keep Docker images updated
+- [ ] Monitor logs regularly
+- [ ] Set up automated backups
+- [ ] Review nginx access logs
+- [ ] Enable HTTPS redirect (enabled by default)
+- [ ] Verify security headers are set (X-Frame-Options, etc.)

@@ -1,9 +1,9 @@
-import https from "https";
+import http from "http";
 import express from "express";
 import cors from "cors";
 import session from "express-session";
-import fs from "fs";
 import path from "path";
+import fs from "fs";
 import { connectDB } from "./db.js";
 import productsRouter from "./routes/products.js";
 import inventoryRouter from "./routes/inventory.js";
@@ -12,14 +12,13 @@ import createAdminRoutes from "./routes/admin.js";
 import createDropdownRoutes from "./routes/dropdowns.js";
 import { createAuthRoutes } from "./middleware/auth.js";
 
-
-const options = {
-  key: fs.readFileSync("certs/localhost+3-key.pem"),
-  cert: fs.readFileSync("certs/localhost+3.pem"),
-};
-
-
 const app = express();
+
+// Trust proxy headers when behind nginx/Tailscale
+if (process.env.BEHIND_PROXY === 'true') {
+  app.set('trust proxy', 1);
+}
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
@@ -30,7 +29,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false, // Set to true if using HTTPS only
+    secure: process.env.BEHIND_PROXY === 'true', // Secure cookies when behind proxy (HTTPS)
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
@@ -55,8 +54,11 @@ app.get("/health", (req, res) => {
 const PORT = process.env.PORT || 3001;
 const HOST = "0.0.0.0";
 
-https.createServer(options, app).listen(PORT, HOST, () => {
-  console.log(`HTTPS server running on https://${HOST}:${PORT}`);
+http.createServer(app).listen(PORT, HOST, () => {
+  console.log(`HTTP server running on http://${HOST}:${PORT}`);
+  if (process.env.BEHIND_PROXY === 'true') {
+    console.log('Running behind proxy - TLS terminated at proxy layer');
+  }
 });
 
 const init = () => {
