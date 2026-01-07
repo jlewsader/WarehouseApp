@@ -85,8 +85,7 @@ function renderProductFound(product, parsedLot) {
     </label>
     <p>
       Size: ${product.seed_size || "N/A"} |
-      Package: ${product.package_type || "N/A"} |
-      Units/Package: ${product.units_per_package || 1}
+      Package: ${product.package_type || "N/A"}
     </p>
 
     <label>Quantity Received<br>
@@ -177,22 +176,6 @@ async function saveNewProduct(barcode) {
   const pkgSel = document.getElementById("pPackageSelect");
   const package_type = (pkgSel.value === "__OTHER__") ? document.getElementById("pPackageOther").value.trim() : pkgSel.value.trim();
 
-  // Determine units per package
-  let units_per_package = 1;
-  const pkg = (package_type || "").toUpperCase();
-  const manualMap = { MB45: 45, MB40: 40, PB80: 1, "80M": 1, PB140: 1, "140M": 1 };
-
-  if (manualMap[pkg] !== undefined) units_per_package = manualMap[pkg];
-  else {
-    const match = pkg.match(/(\d+)$/);
-    if (match) {
-      const num = parseInt(match[1], 10);
-      if ([50, 45, 40, 35, 30, 25, 20].includes(num)) units_per_package = num;
-      else if ([80, 140].includes(num)) units_per_package = 1;
-      else units_per_package = 1;
-    }
-  }
-
   const box = document.getElementById("resultBox");
   box.innerHTML = `<p>Saving product...</p>`;
 
@@ -205,8 +188,7 @@ async function saveNewProduct(barcode) {
         brand,
         product_code,
         seed_size,
-        package_type,
-        units_per_package
+        package_type
       })
     });
 

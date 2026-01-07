@@ -12,7 +12,6 @@ async function checkAuth() {
       currentUser = data.user;
       showAdminPanel();
       loadStats();
-      loadDropdownOptions();
       loadProducts();
       loadOutboundLog();
     } else {
@@ -116,148 +115,6 @@ async function loadStats() {
 }
 
 // Load and display dropdown options
-async function loadDropdownOptions() {
-  try {
-    const response = await fetch('/api/admin/dropdown-options');
-    const options = await response.json();
-    
-    // Group by category
-    const grouped = {
-      brand: [],
-      seed_size: [],
-      package_type: []
-    };
-    
-    options.forEach(opt => {
-      if (grouped[opt.category]) {
-        grouped[opt.category].push(opt);
-      }
-    });
-    
-    // Render each category
-    const container = document.getElementById('dropdownCategories');
-    container.innerHTML = '';
-    
-    const categoryLabels = {
-      brand: 'Brands',
-      seed_size: 'Seed Sizes',
-      package_type: 'Package Types'
-    };
-    
-    for (const [category, items] of Object.entries(grouped)) {
-      const section = document.createElement('div');
-      section.className = 'category-section';
-      section.innerHTML = `
-        <h3>${categoryLabels[category]}</h3>
-        <div id="${category}-options"></div>
-        <div class="add-option-form">
-          <input type="text" placeholder="New value" id="${category}-new-value">
-          <input type="number" placeholder="Order" id="${category}-new-order" value="${items.length + 1}" style="width: 80px;">
-          <button class="btn btn-primary btn-small" onclick="addOption('${category}')">Add</button>
-        </div>
-      `;
-      container.appendChild(section);
-      
-      // Render items
-      const optionsContainer = section.querySelector(`#${category}-options`);
-      items.forEach(item => {
-        renderOptionItem(optionsContainer, item);
-      });
-    }
-  } catch (error) {
-    console.error('Failed to load dropdown options:', error);
-  }
-}
-
-function renderOptionItem(container, item) {
-  const div = document.createElement('div');
-  div.className = 'option-item';
-  div.dataset.id = item.id;
-  div.innerHTML = `
-    <input type="number" class="order-input" value="${item.display_order}" 
-           onchange="updateOptionOrder(${item.id}, this.value)">
-    <input type="text" value="${item.value}" 
-           onchange="updateOptionValue(${item.id}, this.value)">
-    <button class="btn btn-danger btn-small" onclick="deleteOption(${item.id})">Delete</button>
-  `;
-  container.appendChild(div);
-}
-
-// Add new dropdown option
-window.addOption = async function(category) {
-  const valueInput = document.getElementById(`${category}-new-value`);
-  const orderInput = document.getElementById(`${category}-new-order`);
-  
-  const value = valueInput.value.trim();
-  const display_order = parseInt(orderInput.value) || 0;
-  
-  if (!value) return;
-  
-  try {
-    const response = await fetch('/api/admin/dropdown-options', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category, value, display_order })
-    });
-    
-    if (response.ok) {
-      valueInput.value = '';
-      orderInput.value = parseInt(orderInput.value) + 1;
-      loadDropdownOptions();
-    } else {
-      const data = await response.json();
-      alert('Error: ' + (data.error || 'Failed to add option'));
-    }
-  } catch (error) {
-    alert('Network error: ' + error.message);
-  }
-};
-
-// Update option order
-window.updateOptionOrder = async function(id, order) {
-  try {
-    await fetch(`/api/admin/dropdown-options/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ display_order: parseInt(order) })
-    });
-  } catch (error) {
-    console.error('Failed to update order:', error);
-  }
-};
-
-// Update option value
-window.updateOptionValue = async function(id, value) {
-  try {
-    await fetch(`/api/admin/dropdown-options/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value })
-    });
-  } catch (error) {
-    console.error('Failed to update value:', error);
-  }
-};
-
-// Delete option
-window.deleteOption = async function(id) {
-  if (!confirm('Are you sure you want to delete this option?')) return;
-  
-  try {
-    const response = await fetch(`/api/admin/dropdown-options/${id}`, {
-      method: 'DELETE'
-    });
-    
-    if (response.ok) {
-      loadDropdownOptions();
-    } else {
-      const data = await response.json();
-      alert('Error: ' + (data.error || 'Failed to delete option'));
-    }
-  } catch (error) {
-    alert('Network error: ' + error.message);
-  }
-};
 
 // Clear inventory
 document.getElementById('clearInventoryBtn').addEventListener('click', async () => {
@@ -305,29 +162,44 @@ document.getElementById('clearInventoryBtn').addEventListener('click', async () 
   }
 });
 
-// Load products
-async function loadProducts() {
+// Load products with search
+let allProducts = [];
+
+async function loadProducts(searchTerm = '') {
   const tbody = document.getElementById('productsTableBody');
   const errorDiv = document.getElementById('productsError');
   errorDiv.style.display = 'none';
   
   try {
     const response = await fetch('/api/admin/products');
-    const products = await response.json();
+    allProducts = await response.json();
     
-    if (products.length === 0) {
+    // Filter products by search term
+    let filteredProducts = allProducts;
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filteredProducts = allProducts.filter(p => 
+        (p.brand && p.brand.toLowerCase().includes(term)) ||
+        (p.product_code && p.product_code.toLowerCase().includes(term)) ||
+        (p.barcode && p.barcode.toLowerCase().includes(term)) ||
+        (p.seed_size && p.seed_size.toLowerCase().includes(term)) ||
+        (p.package_type && p.package_type.toLowerCase().includes(term))
+      );
+    }
+    
+    if (filteredProducts.length === 0) {
       tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">No products found</td></tr>';
       return;
     }
     
-    tbody.innerHTML = products.map(p => `
-      <tr>
+    tbody.innerHTML = filteredProducts.map(p => `
+      <tr data-product-id="${p.id}">
         <td>${p.id}</td>
-        <td>${p.brand || '-'}</td>
-        <td>${p.product_code || '-'}</td>
-        <td>${p.seed_size || '-'}</td>
-        <td>${p.package_type || '-'}</td>
         <td>${p.barcode || '-'}</td>
+        <td class="editable-cell" data-field="brand" data-product-id="${p.id}">${p.brand || '-'}</td>
+        <td class="editable-cell" data-field="product_code" data-product-id="${p.id}">${p.product_code || '-'}</td>
+        <td class="editable-cell" data-field="seed_size" data-product-id="${p.id}">${p.seed_size || '-'}</td>
+        <td class="editable-cell" data-field="package_type" data-product-id="${p.id}">${p.package_type || '-'}</td>
         <td>${p.inventory_count || 0}</td>
         <td>
           ${p.inventory_count === 0 
@@ -337,10 +209,87 @@ async function loadProducts() {
         </td>
       </tr>
     `).join('');
+    
+    // Add click listeners for inline editing
+    document.querySelectorAll('.editable-cell').forEach(cell => {
+      cell.addEventListener('click', function() {
+        if (this.classList.contains('editing-cell')) return;
+        makeEditable(this);
+      });
+    });
   } catch (error) {
     errorDiv.textContent = 'Failed to load products: ' + error.message;
     errorDiv.style.display = 'block';
   }
+}
+
+// Make cell editable
+function makeEditable(cell) {
+  const currentValue = cell.textContent === '-' ? '' : cell.textContent;
+  const field = cell.dataset.field;
+  const productId = cell.dataset.productId;
+  
+  cell.classList.add('editing-cell');
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentValue;
+  input.style.width = '100%';
+  
+  cell.textContent = '';
+  cell.appendChild(input);
+  input.focus();
+  input.select();
+  
+  const saveEdit = async () => {
+    const newValue = input.value.trim();
+    cell.classList.remove('editing-cell');
+    
+    try {
+      const response = await fetch(`/api/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: newValue || null })
+      });
+      
+      if (response.ok) {
+        cell.textContent = newValue || '-';
+        showProductSuccess('Product updated successfully');
+        // Update the allProducts array
+        const product = allProducts.find(p => p.id == productId);
+        if (product) product[field] = newValue;
+      } else {
+        const data = await response.json();
+        cell.textContent = currentValue || '-';
+        showProductError(data.error || 'Failed to update product');
+      }
+    } catch (error) {
+      cell.textContent = currentValue || '-';
+      showProductError('Network error: ' + error.message);
+    }
+  };
+  
+  input.addEventListener('blur', saveEdit);
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      input.blur();
+    } else if (e.key === 'Escape') {
+      cell.classList.remove('editing-cell');
+      cell.textContent = currentValue || '-';
+    }
+  });
+}
+
+function showProductSuccess(message) {
+  const successDiv = document.getElementById('productsSuccess');
+  successDiv.textContent = message;
+  successDiv.style.display = 'block';
+  setTimeout(() => { successDiv.style.display = 'none'; }, 3000);
+}
+
+function showProductError(message) {
+  const errorDiv = document.getElementById('productsError');
+  errorDiv.textContent = message;
+  errorDiv.style.display = 'block';
 }
 
 // Delete product
@@ -495,6 +444,124 @@ document.getElementById('resetFilterBtn')?.addEventListener('click', () => {
   loadOutboundLog();
 });
 document.getElementById('exportCsvBtn')?.addEventListener('click', exportOutboundCSV);
+
+// Import Products functionality
+let selectedFile = null;
+
+document.getElementById('selectFileBtn')?.addEventListener('click', () => {
+  document.getElementById('excelFileInput').click();
+});
+
+document.getElementById('excelFileInput')?.addEventListener('change', (e) => {
+  selectedFile = e.target.files[0];
+  const fileNameDisplay = document.getElementById('selectedFileName');
+  const importBtn = document.getElementById('importBtn');
+  
+  if (selectedFile) {
+    fileNameDisplay.textContent = `Selected: ${selectedFile.name}`;
+    importBtn.disabled = false;
+  } else {
+    fileNameDisplay.textContent = '';
+    importBtn.disabled = true;
+  }
+});
+
+document.getElementById('importBtn')?.addEventListener('click', async () => {
+  if (!selectedFile) return;
+
+  const progressDiv = document.getElementById('importProgress');
+  const resultsDiv = document.getElementById('importResults');
+  const summaryDiv = document.getElementById('importSummary');
+  const errorsDiv = document.getElementById('importErrors');
+  const brandName = document.getElementById('importBrandName').value.trim();
+  
+  progressDiv.classList.remove('hidden');
+  resultsDiv.classList.add('hidden');
+
+  try {
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    if (brandName) {
+      formData.append('brand', brandName);
+    }
+
+    const response = await fetch('/api/products/import', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await response.json();
+
+    progressDiv.classList.add('hidden');
+    resultsDiv.classList.remove('hidden');
+
+    if (response.ok && data.success) {
+      const brandInfo = brandName ? `<p style="margin: 5px 0;"><strong>Brand:</strong> ${brandName}</p>` : '';
+      summaryDiv.innerHTML = `
+        <div style="padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; margin-bottom: 15px;">
+          <h4 style="margin-top: 0; color: #155724;">✓ Import Successful</h4>
+          ${brandInfo}
+          <p style="margin: 5px 0;"><strong>New Products:</strong> ${data.imported}</p>
+          <p style="margin: 5px 0;"><strong>Updated Products:</strong> ${data.updated}</p>
+          <p style="margin: 5px 0;"><strong>Skipped Rows:</strong> ${data.skipped}</p>
+          <p style="margin: 5px 0;"><strong>Total Rows:</strong> ${data.total}</p>
+        </div>
+      `;
+
+      if (data.errors && data.errors.length > 0) {
+        errorsDiv.innerHTML = `
+          <div style="padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+            <h4 style="margin-top: 0; color: #856404;">⚠️ Errors (${data.errors.length})</h4>
+            <ul style="margin: 0; padding-left: 20px;">
+              ${data.errors.map(err => `<li>Row ${err.row} (GTIN: ${err.gtin}): ${err.error}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      } else {
+        errorsDiv.innerHTML = '';
+      }
+
+      // Reload products table
+      loadProducts();
+      
+      // Reset form
+      document.getElementById('importBrandName').value = '';
+      document.getElementById('excelFileInput').value = '';
+      document.getElementById('selectedFileName').textContent = '';
+      document.getElementById('importBtn').disabled = true;
+      selectedFile = null;
+    } else {
+      summaryDiv.innerHTML = `
+        <div style="padding: 15px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px;">
+          <h4 style="margin-top: 0; color: #721c24;">✗ Import Failed</h4>
+          <p>${data.error || 'Unknown error occurred'}</p>
+        </div>
+      `;
+      errorsDiv.innerHTML = '';
+    }
+  } catch (error) {
+    progressDiv.classList.add('hidden');
+    resultsDiv.classList.remove('hidden');
+    summaryDiv.innerHTML = `
+      <div style="padding: 15px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px;">
+        <h4 style="margin-top: 0; color: #721c24;">✗ Import Failed</h4>
+        <p>${error.message}</p>
+      </div>
+    `;
+    errorsDiv.innerHTML = '';
+  }
+});
+
+// Product search functionality
+document.getElementById('productSearchInput')?.addEventListener('input', (e) => {
+  const searchTerm = e.target.value;
+  loadProducts(searchTerm);
+});
+
+document.getElementById('clearSearchBtn')?.addEventListener('click', () => {
+  document.getElementById('productSearchInput').value = '';
+  loadProducts();
+});
 
 // Initialize on page load
 checkAuth();

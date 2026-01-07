@@ -245,6 +245,22 @@
       font-weight: bold;
       margin: 15px 0;
     }
+    .editable-cell {
+      cursor: pointer;
+      padding: 8px;
+      transition: background-color 0.2s;
+    }
+    .editable-cell:hover {
+      background-color: #f0f8ff;
+      outline: 1px dashed #4CAF50;
+    }
+    .editing-cell input {
+      width: 100%;
+      padding: 6px;
+      border: 2px solid #4CAF50;
+      border-radius: 3px;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -297,21 +313,63 @@
 
     <!-- Tabs -->
     <div class="tabs">
-      <div class="tab active" data-tab="dropdowns">Dropdown Options</div>
-      <div class="tab" data-tab="bulk">Bulk Operations</div>
+      <div class="tab active" data-tab="import">Import Products</div>
       <div class="tab" data-tab="products">Product Management</div>
+      <div class="tab" data-tab="bulk">Bulk Operations</div>
       <div class="tab" data-tab="outbound">Outbound Log</div>
     </div>
 
-    <!-- Tab 1: Dropdown Options -->
-    <div id="dropdownsTab" class="tab-content active">
-      <h2>Manage Dropdown Options</h2>
-      <p>Add, edit, or remove options for brands, seed sizes, and package types.</p>
+    <!-- Tab 1: Import Products -->
+    <div id="importTab" class="tab-content active">
+      <h2>Import Products from Excel</h2>
+      <p>Upload an Excel file (.xlsx) to import or update products. Expected columns: C=GTIN, B=Product, E=Seed Size, F=Package Type</p>
       
-      <div id="dropdownCategories"></div>
+      <div style="padding: 20px; background: #f9f9f9; border-radius: 4px; margin-bottom: 20px;">
+        <h3>Import Instructions</h3>
+        <ul>
+          <li>Column C: GTIN (barcode) - Required</li>
+          <li>Column B: Product name/code</li>
+          <li>Column E: Seed size</li>
+          <li>Column F: Package type</li>
+        </ul>
+        <p><strong>Import Strategy:</strong> If GTIN exists, product will be updated. If new, product will be added.</p>
+        <p><strong>Tip:</strong> Separate your Excel file by brand, then import each file with the brand name specified below.</p>
+      </div>
+
+      <div style="padding: 20px; background: white; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 20px;">
+        <div class="form-group">
+          <label for="importBrandName"><strong>Brand Name (Optional)</strong></label>
+          <input type="text" id="importBrandName" placeholder="e.g., Dekalb, Armor, Keystone..." style="width: 100%; max-width: 400px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          <p style="margin: 8px 0 0 0; color: #666; font-size: 14px;">Leave blank to keep existing brand or set to NULL for new products.</p>
+        </div>
+      </div>
+
+      <div style="padding: 20px; background: white; border: 2px dashed #ddd; border-radius: 4px; text-align: center; margin-bottom: 20px;">
+        <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display: none;">
+        <button id="selectFileBtn" class="btn btn-primary" style="font-size: 16px; padding: 15px 30px;">
+          📂 Select Excel File
+        </button>
+        <p id="selectedFileName" style="margin-top: 10px; color: #666;"></p>
+      </div>
+
+      <div style="text-align: center;">
+        <button id="importBtn" class="btn btn-secondary" style="font-size: 16px; padding: 15px 30px;" disabled>
+          ⬆️ Upload & Import
+        </button>
+      </div>
+
+      <div id="importProgress" class="hidden" style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 4px;">
+        <p style="margin: 0; font-weight: bold;">Importing...</p>
+      </div>
+
+      <div id="importResults" class="hidden" style="margin-top: 20px; padding: 20px; background: #f9f9f9; border-radius: 4px;">
+        <h3>Import Results</h3>
+        <div id="importSummary"></div>
+        <div id="importErrors"></div>
+      </div>
     </div>
 
-    <!-- Tab 2: Bulk Operations -->
+    <!-- Tab 3: Bulk Operations -->
     <div id="bulkTab" class="tab-content">
       <h2>Bulk Operations</h2>
       
@@ -325,20 +383,30 @@
       </div>
     </div>
 
-    <!-- Tab 3: Product Management -->
+    <!-- Tab 2: Product Management -->
     <div id="productsTab" class="tab-content">
       <h2>Product Management</h2>
-      <p>View and manage all products. Products can only be deleted if they have no inventory.</p>
+      <p>View, search, and edit all products. Click on a field to edit it inline.</p>
+      
+      <div style="margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-radius: 4px;">
+        <div style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
+          <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+            <label for="productSearchInput">Search Products</label>
+            <input type="text" id="productSearchInput" placeholder="Search by brand, product, GTIN..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+          <button id="clearSearchBtn" class="btn btn-secondary">Clear Search</button>
+        </div>
+      </div>
       
       <table id="productsTable">
         <thead>
           <tr>
             <th>ID</th>
+            <th>Barcode (GTIN)</th>
             <th>Brand</th>
             <th>Product Code</th>
             <th>Seed Size</th>
             <th>Package Type</th>
-            <th>Barcode</th>
             <th>Inventory Count</th>
             <th>Actions</th>
           </tr>
@@ -350,6 +418,7 @@
         </tbody>
       </table>
       <div id="productsError" class="error-message"></div>
+      <div id="productsSuccess" class="success-message"></div>
     </div>
 
     <!-- Tab 4: Outbound Log -->

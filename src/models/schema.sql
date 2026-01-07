@@ -4,8 +4,7 @@ CREATE TABLE IF NOT EXISTS products (
     brand TEXT,
     product_code TEXT,
     seed_size TEXT,
-    package_type TEXT,
-    units_per_package INTEGER DEFAULT 1
+    package_type TEXT
 );
 
 
