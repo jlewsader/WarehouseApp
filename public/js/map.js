@@ -433,16 +433,20 @@ const app = createApp({
     },
 
     async refreshInbound() {
+      console.log('[refreshInbound] Fetching unassigned inventory...');
       const inboundRes = await fetch("/api/inventory/unassigned");
       this.inbound = await inboundRes.json();
+      console.log(`[refreshInbound] Received ${this.inbound.length} inbound items:`, this.inbound);
 
       if (!this.inbound.length) {
+        console.log('[refreshInbound] No inbound items, clearing selection');
         this.selectedInboundId = null;
         return;
       }
 
       if (!this.inbound.some(item => item.id === this.selectedInboundId)) {
         this.selectedInboundId = this.inbound[0].id;
+        console.log(`[refreshInbound] Selected first inbound item: ${this.selectedInboundId}`);
       }
     },
 
@@ -751,6 +755,13 @@ const app = createApp({
       this.scan.view = "message";
       this.scan.message = `Receiving ${qty} units...`;
 
+      console.log('[receiveInventoryFromScan] Receiving inventory:', {
+        product_id: this.scan.product.id,
+        qty,
+        owner: "Keystone",
+        lot: this.scan.receivingLot || null
+      });
+
       try {
         const res = await fetch("/api/inventory/receive", {
           method: "POST",
@@ -764,7 +775,10 @@ const app = createApp({
         });
 
         const data = await res.json();
+        console.log('[receiveInventoryFromScan] Response:', data);
+        
         if (!res.ok) {
+          console.error('[receiveInventoryFromScan] Error response:', data);
           this.scan.message = data.error || data.message || "Receive failed.";
           return;
         }
@@ -776,8 +790,11 @@ const app = createApp({
         this.scan.receivingQty = 1;
         this.scan.receivingLot = "";
 
+        console.log('[receiveInventoryFromScan] Refreshing inbound and inventory...');
         await Promise.all([this.refreshInbound(), this.refreshInventory()]);
+        console.log('[receiveInventoryFromScan] Refresh complete');
       } catch (err) {
+        console.error('[receiveInventoryFromScan] Exception:', err);
         this.scan.message = `Error: ${err.message}`;
       }
     },

@@ -369,7 +369,6 @@ router.get("/unassigned", (req, res) => {
       i.lot,
       p.seed_size,
       p.package_type,
-      p.units_per_package,
       i.staged
     FROM inventory i
     JOIN products p ON p.id = i.product_id
@@ -378,7 +377,11 @@ router.get("/unassigned", (req, res) => {
   `;
 
   db.all(sql, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) {
+      console.error("[GET /unassigned] Error fetching unassigned inventory:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    console.log(`[GET /unassigned] Found ${rows.length} unassigned items`);
     res.json(rows);
   });
 });
@@ -391,15 +394,21 @@ router.post("/receive", (req, res) => {
   const db = req.app.locals.db;
   const { product_id, qty, owner, lot } = req.body;
 
+  console.log(`[POST /receive] Request body:`, { product_id, qty, owner, lot });
+
   if (!product_id || !qty) {
+    console.error("[POST /receive] Missing product_id or qty");
     return res.status(400).json({ error: "Missing product_id or qty" });
   }
 
   const qtyNum = parseInt(qty, 10);
 
   if (qtyNum <= 0) {
+    console.error("[POST /receive] Invalid qty:", qtyNum);
     return res.status(400).json({ error: "qty must be greater than 0" });
   }
+
+  console.log(`[POST /receive] Inserting ${qtyNum} items with location_id=9999`);
 
   // Insert N rows (one per unit)
   db.serialize(() => {
@@ -415,9 +424,10 @@ router.post("/receive", (req, res) => {
         [product_id, lot || null, owner || "Keystone"],
           function (err) {
           if (err) {
-            console.error("Failed to insert inventory:", err);
+            console.error(`[POST /receive] Failed to insert inventory item ${i + 1}:`, err);
           } else {
             insertedCount++;
+            console.log(`[POST /receive] Inserted item ${insertedCount}/${qtyNum}, ID: ${this.lastID}`);
           }
         }
       );
@@ -425,10 +435,11 @@ router.post("/receive", (req, res) => {
 
     stmt.finalize((err) => {
       if (err) {
-        console.error("Failed to finalize receive:", err);
+        console.error("[POST /receive] Failed to finalize receive:", err);
         return res.status(500).json({ error: err.message });
       }
 
+      console.log(`[POST /receive] Successfully inserted ${insertedCount} items`);
       res.json({
         message: "Inventory received",
         qty_inserted: insertedCount,
