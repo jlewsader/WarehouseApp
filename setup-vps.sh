@@ -117,6 +117,13 @@ echo "✅ Docker Compose is available"
 echo "📁 Creating directories..."
 mkdir -p data backups certs
 
+# Set ownership for Docker container user (UID 1001)
+echo "🔒 Setting directory permissions for container user..."
+chown -R 1001:1001 data backups 2>/dev/null || {
+  echo "⚠️  Note: Could not set ownership. Run 'sudo chown -R 1001:1001 data backups' after deployment"
+}
+chmod -R 775 data backups
+
 # Generate SSL certificates for HTTPS (self-signed for testing)
 if [ ! -f certs/server.key ] || [ ! -f certs/server.crt ]; then
   echo "🔐 Generating self-signed SSL certificates..."

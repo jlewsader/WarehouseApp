@@ -369,7 +369,6 @@ router.get("/unassigned", (req, res) => {
       i.lot,
       p.seed_size,
       p.package_type,
-      p.units_per_package,
       i.staged
     FROM inventory i
     JOIN products p ON p.id = i.product_id
@@ -378,7 +377,10 @@ router.get("/unassigned", (req, res) => {
   `;
 
   db.all(sql, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) {
+      console.error("Failed to fetch unassigned inventory:", err);
+      return res.status(500).json({ error: err.message });
+    }
     res.json(rows);
   });
 });
