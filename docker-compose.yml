@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: warehouseapp
     restart: unless-stopped
-
+    user: "1001:1001"
     ports:
       - "3001:3001"
     environment:
